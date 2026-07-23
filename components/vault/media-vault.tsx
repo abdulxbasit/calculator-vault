@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVault } from '../../context/vault-context';
 import { VaultFile, VaultFolder } from '../../services/vault-storage';
 import { CreateFolderModal } from './create-folder-modal';
@@ -97,6 +98,7 @@ const MediaFolderCard: React.FC<{
 
 export const MediaVault: React.FC = () => {
   const { files, folders, addMediaFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
+  const insets = useSafeAreaInsets();
   // null = Main View showing Folders Grid
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
@@ -471,7 +473,7 @@ export const MediaVault: React.FC = () => {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <View style={styles.modalOverlay}>
               {/* Glassy Header */}
-              <BlurView intensity={75} tint="dark" style={styles.previewHeader}>
+              <BlurView intensity={75} tint="dark" style={[styles.previewHeader, { paddingTop: insets.top + 12 }]}>
                 <TouchableOpacity onPress={() => setSelectedIndex(null)} style={styles.headerBackBtn}>
                   <Ionicons name="arrow-back" size={24} color="#ffffff" />
                 </TouchableOpacity>
@@ -882,7 +884,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: 'rgba(18, 18, 18, 0.75)',
     borderBottomWidth: 1,
