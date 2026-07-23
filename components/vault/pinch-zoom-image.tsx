@@ -77,7 +77,7 @@ export const PinchZoomImage: React.FC<PinchZoomImageProps> = ({
       'worklet';
       if (scale.value > 1) {
         const maxTx = (SCREEN_WIDTH * (scale.value - 1)) / 2;
-        const maxTy = (SCREEN_HEIGHT * 0.6 * (scale.value - 1)) / 2;
+        const maxTy = (SCREEN_HEIGHT * 0.85 * (scale.value - 1)) / 2;
 
         translateX.value = clamp(savedTranslateX.value + event.translationX, -maxTx, maxTx);
         translateY.value = clamp(savedTranslateY.value + event.translationY, -maxTy, maxTy);
@@ -140,7 +140,7 @@ export const PinchZoomImage: React.FC<PinchZoomImageProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.7,
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -10,10 +10,12 @@ import {
   Alert,
   Dimensions,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
+import { BlurView } from 'expo-blur';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useVault } from '../../context/vault-context';
@@ -78,17 +80,7 @@ export const MediaVault: React.FC = () => {
 
 
 
-  const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(prev + 0.5, 4.0));
-  };
 
-  const handleZoomOut = () => {
-    setZoomLevel((prev) => Math.max(prev - 0.5, 1.0));
-  };
-
-  const handleResetZoom = () => {
-    setZoomLevel(1.0);
-  };
 
   const handlePickMedia = async () => {
     try {
@@ -301,8 +293,8 @@ export const MediaVault: React.FC = () => {
         >
           <GestureHandlerRootView style={{ flex: 1 }}>
             <View style={styles.modalOverlay}>
-              {/* Header */}
-              <View style={styles.previewHeader}>
+              {/* Glassy Header */}
+              <BlurView intensity={75} tint="dark" style={styles.previewHeader}>
                 <TouchableOpacity onPress={() => setSelectedIndex(null)} style={styles.headerBackBtn}>
                   <Ionicons name="arrow-back" size={24} color="#ffffff" />
                 </TouchableOpacity>
@@ -315,24 +307,7 @@ export const MediaVault: React.FC = () => {
                     {selectedIndex + 1} of {filteredMediaFiles.length}
                   </Text>
                 </View>
-
-                {/* Zoom Action Controls Bar */}
-                {selectedFile.type === 'image' && (
-                  <View style={styles.zoomControlBar}>
-                    <TouchableOpacity style={styles.zoomBtn} onPress={handleZoomOut}>
-                      <Ionicons name="remove-circle-outline" size={22} color="#f8fafc" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.zoomResetBadge} onPress={handleResetZoom}>
-                      <Text style={styles.zoomResetText}>{Math.round(zoomLevel * 100)}%</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.zoomBtn} onPress={handleZoomIn}>
-                      <Ionicons name="add-circle-outline" size={22} color="#f8fafc" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
+              </BlurView>
 
               {/* Horizontal Swipeable Content View */}
               <View style={styles.previewContent}>
@@ -373,8 +348,8 @@ export const MediaVault: React.FC = () => {
                 />
               </View>
 
-              {/* Footer Toolbar */}
-              <View style={styles.previewFooter}>
+              {/* Glassy Footer Toolbar */}
+              <BlurView intensity={75} tint="dark" style={styles.previewFooter}>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(selectedFile)}>
                   <Ionicons name="share-outline" size={20} color="#38bdf8" />
                   <Text style={styles.actionText}>Export</Text>
@@ -398,7 +373,7 @@ export const MediaVault: React.FC = () => {
                   <Ionicons name="trash-outline" size={20} color="#f87171" />
                   <Text style={[styles.actionText, { color: '#f87171' }]}>Delete</Text>
                 </TouchableOpacity>
-              </View>
+              </BlurView>
             </View>
           </GestureHandlerRootView>
         </Modal>
@@ -592,10 +567,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 16,
-    backgroundColor: '#181818',
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: 'rgba(18, 18, 18, 0.75)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.12)',
     gap: 12,
+    overflow: 'hidden',
   },
   headerBackBtn: {
     paddingRight: 4,
@@ -615,30 +593,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
-  },
-  zoomControlBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#262626',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 16,
-    marginRight: 12,
-  },
-  zoomBtn: {
-    padding: 2,
-  },
-  zoomResetBadge: {
-    backgroundColor: '#383838',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  zoomResetText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   previewContent: {
     flex: 1,
@@ -663,12 +617,19 @@ const styles = StyleSheet.create({
     height: height * 0.7,
   },
   previewFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 16,
-    backgroundColor: '#181818',
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 18,
+    backgroundColor: 'rgba(18, 18, 18, 0.65)',
     borderTopWidth: 1,
-    borderTopColor: '#282828',
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
+    overflow: 'hidden',
   },
   actionBtn: {
     flexDirection: 'row',
