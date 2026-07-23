@@ -7,27 +7,46 @@ import {
   Alert,
   Modal,
   TextInput,
+  ScrollView,
+  Pressable,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useVault } from '../context/vault-context';
 import { PinSetupModal } from './vault/pin-setup-modal';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface HistoryItem {
+  id: string;
+  expression: string;
+  result: string;
+}
 
 export const Calculator: React.FC = () => {
   const { hasPin, unlockVault, securityQuestion, resetPinWithSecurityAnswer } = useVault();
 
   const [display, setDisplay] = useState('0');
   const [expression, setExpression] = useState('');
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+
+  // Keypad state
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isDegree, setIsDegree] = useState(true);
+  const [isInv, setIsInv] = useState(false);
+
+  // Vault states
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [initialPinSetup, setInitialPinSetup] = useState('');
-
-  // Password recovery modal state
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [recoveryAnswer, setRecoveryAnswer] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
 
+  // Number input
   const handleNumber = (num: string) => {
     if (display === '0' || display === 'Error') {
       setDisplay(num);
@@ -36,18 +55,44 @@ export const Calculator: React.FC = () => {
     }
   };
 
-  const handleOperator = (op: string) => {
-    if (display === 'Error') return;
-    setExpression(expression + ' ' + display + ' ' + op);
-    setDisplay('0');
+  // Decimal point
+  const handleDecimal = () => {
+    if (display === 'Error') {
+      setDisplay('0.');
+      return;
+    }
+    // Only allow one decimal point in current active number segment
+    const parts = display.split(/[\+\−\×\÷\^]/);
+    const lastPart = parts[parts.length - 1];
+    if (!lastPart.includes('.')) {
+      setDisplay(display + '.');
+    }
   };
 
+  // Basic operator input
+  const handleOperator = (op: string) => {
+    if (display === 'Error') return;
+    if (expression && display === '0') {
+      // Replace last operator if expression ends with one
+      setExpression(expression.replace(/[\+\−\×\÷\^]\s*$/, op + ' '));
+    } else {
+      setExpression((prev) => (prev ? `${prev} ${display} ${op}` : `${display} ${op}`));
+      setDisplay('0');
+    }
+  };
+
+  // Clear all
   const handleClear = () => {
     setDisplay('0');
     setExpression('');
   };
 
+  // Backspace
   const handleBackspace = () => {
+    if (display === 'Error') {
+      setDisplay('0');
+      return;
+    }
     if (display.length > 1) {
       setDisplay(display.slice(0, -1));
     } else {
@@ -55,38 +100,147 @@ export const Calculator: React.FC = () => {
     }
   };
 
-  const handleToggleSign = () => {
-    if (display === '0' || display === 'Error') return;
-    if (display.startsWith('-')) {
-      setDisplay(display.substring(1));
+  // Smart Parentheses insertion
+  const handleParentheses = () => {
+    if (display === 'Error') {
+      setDisplay('(');
+      return;
+    }
+    const fullText = (expression + ' ' + display).trim();
+    const openCount = (fullText.match(/\(/g) || []).length;
+    const closeCount = (fullText.match(/\)/g) || []).length;
+
+    const lastChar = display.slice(-1);
+    const isLastOp = ['+', '−', '×', '÷', '(', '^'].includes(lastChar) || display === '0';
+
+    if (openCount > closeCount && !isLastOp) {
+      setDisplay(display + ')');
     } else {
-      setDisplay('-' + display);
+      if (display === '0') {
+        setDisplay('(');
+      } else {
+        setDisplay(display + '(');
+      }
     }
   };
 
+  // Percentage
   const handlePercent = () => {
     try {
       const val = parseFloat(display);
       if (!isNaN(val)) {
-        setDisplay((val / 100).toString());
+        const result = (val / 100).toString();
+        setDisplay(result);
       }
     } catch {
       setDisplay('Error');
     }
   };
 
+  // Factorial calculation helper
+  const factorial = (n: number): number => {
+    if (n < 0) return NaN;
+    if (n === 0 || n === 1) return 1;
+    let res = 1;
+    for (let i = 2; i <= n; i++) res *= i;
+    return res;
+  };
+
+  // Scientific function handler
+  const handleScientific = (func: string) => {
+    if (display === 'Error') return;
+    const val = parseFloat(display);
+
+    switch (func) {
+      case '√':
+        if (!isNaN(val) && val >= 0) {
+          setDisplay(Math.sqrt(val).toString());
+        } else {
+          setDisplay('Error');
+        }
+        break;
+      case 'π':
+        setDisplay(Math.PI.toString());
+        break;
+      case 'e':
+        if (isInv) {
+          // e^x
+          if (!isNaN(val)) setDisplay(Math.exp(val).toString());
+        } else {
+          setDisplay(Math.E.toString());
+        }
+        break;
+      case '^':
+        handleOperator('^');
+        break;
+      case '!':
+        if (!isNaN(val) && Number.isInteger(val)) {
+          setDisplay(factorial(val).toString());
+        } else {
+          setDisplay('Error');
+        }
+        break;
+      case 'sin':
+        if (!isNaN(val)) {
+          if (isInv) {
+            const rad = Math.asin(val);
+            setDisplay(isDegree ? (rad * (180 / Math.PI)).toString() : rad.toString());
+          } else {
+            const rad = isDegree ? val * (Math.PI / 180) : val;
+            setDisplay(Math.sin(rad).toString());
+          }
+        }
+        break;
+      case 'cos':
+        if (!isNaN(val)) {
+          if (isInv) {
+            const rad = Math.acos(val);
+            setDisplay(isDegree ? (rad * (180 / Math.PI)).toString() : rad.toString());
+          } else {
+            const rad = isDegree ? val * (Math.PI / 180) : val;
+            setDisplay(Math.cos(rad).toString());
+          }
+        }
+        break;
+      case 'tan':
+        if (!isNaN(val)) {
+          if (isInv) {
+            const rad = Math.atan(val);
+            setDisplay(isDegree ? (rad * (180 / Math.PI)).toString() : rad.toString());
+          } else {
+            const rad = isDegree ? val * (Math.PI / 180) : val;
+            setDisplay(Math.tan(rad).toString());
+          }
+        }
+        break;
+      case 'ln':
+        if (!isNaN(val) && val > 0) {
+          setDisplay(Math.log(val).toString());
+        } else {
+          setDisplay('Error');
+        }
+        break;
+      case 'log':
+        if (!isNaN(val) && val > 0) {
+          setDisplay(Math.log10(val).toString());
+        } else {
+          setDisplay('Error');
+        }
+        break;
+    }
+  };
+
+  // Evaluate expression & Vault Passcode check
   const handleEqual = async () => {
     const cleanDisplay = display.replace(/\s+/g, '');
 
-    // Check if input is a potential secret passcode (pure digits, 4 to 8 length)
-    if (/^\d{4,8}$/.test(cleanDisplay)) {
+    // Secret Passcode unlock check (pure 4 to 8 digits with no expression active)
+    if (!expression && /^\d{4,8}$/.test(cleanDisplay)) {
       if (!hasPin) {
-        // Trigger initial PIN setup wizard
         setInitialPinSetup(cleanDisplay);
         setShowPinSetup(true);
         return;
       } else {
-        // Try unlocking vault
         const unlocked = await unlockVault(cleanDisplay);
         if (unlocked) {
           handleClear();
@@ -95,20 +249,34 @@ export const Calculator: React.FC = () => {
       }
     }
 
-    // Standard Math Calculation Logic
     try {
-      const fullExpr = (expression + ' ' + display)
+      const rawExpr = (expression + ' ' + display).trim();
+      if (!rawExpr) return;
+
+      const sanitized = rawExpr
         .replace(/×/g, '*')
         .replace(/÷/g, '/')
-        .replace(/−/g, '-');
+        .replace(/−/g, '-')
+        .replace(/\^/g, '**')
+        .replace(/π/g, Math.PI.toString())
+        .replace(/e/g, Math.E.toString())
+        .replace(/[^0-9+\-*/.() ]/g, '');
 
-      // Safe evaluation of basic math expressions
-      const sanitized = fullExpr.replace(/[^0-9+\-*/.() ]/g, '');
+      // Evaluate safely
       const result = Function(`"use strict"; return (${sanitized})`)();
 
       if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
-        const resultStr = Number.isInteger(result) ? result.toString() : result.toFixed(4).replace(/\.?0+$/, '');
-        setHistory([`${fullExpr} = ${resultStr}`, ...history.slice(0, 4)]);
+        const resultStr = Number.isInteger(result)
+          ? result.toString()
+          : parseFloat(result.toFixed(8)).toString();
+
+        // Add to history
+        const newItem: HistoryItem = {
+          id: Date.now().toString(),
+          expression: rawExpr,
+          result: resultStr,
+        };
+        setHistory((prev) => [newItem, ...prev.slice(0, 19)]);
         setDisplay(resultStr);
         setExpression('');
       } else {
@@ -119,6 +287,7 @@ export const Calculator: React.FC = () => {
     }
   };
 
+  // Secret recovery reset handle
   const handleRecoveryReset = async () => {
     if (!recoveryAnswer.trim() || !newPinInput.trim()) {
       Alert.alert('Incomplete', 'Please answer the security question and enter a new PIN.');
@@ -137,119 +306,340 @@ export const Calculator: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="light" backgroundColor="#161616" />
 
-      {/* Calculator Header & Stealth Recovery Indicator */}
+      {/* Top Header Bar */}
       <View style={styles.header}>
-        <Text style={styles.appTitle}>Calculator</Text>
         <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={() => setShowHistory(true)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="history" size={24} color="#D1D1D1" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={() => setShowMenu(true)}
           onLongPress={() => {
             if (hasPin) setShowRecoveryModal(true);
           }}
-          style={styles.stealthBtn}
+          activeOpacity={0.7}
         >
-          <Ionicons name="calculator-outline" size={20} color="#475569" />
+          <Ionicons name="ellipsis-vertical" size={22} color="#D1D1D1" />
         </TouchableOpacity>
       </View>
 
-      {/* History & Display Area */}
+      {/* Display Area */}
       <View style={styles.displayContainer}>
-        {history.length > 0 && (
-          <Text style={styles.historyText}>{history[0]}</Text>
-        )}
-        <Text style={styles.expressionText}>{expression}</Text>
-        <Text style={styles.displayText} numberOfLines={1} adjustsFontSizeToFit>
-          {display}
-        </Text>
+        {expression ? (
+          <Text style={styles.expressionText} numberOfLines={1} adjustsFontSizeToFit>
+            {expression}
+          </Text>
+        ) : null}
+        <View style={styles.displayRow}>
+          <Text style={styles.displayText} numberOfLines={1} adjustsFontSizeToFit>
+            {display}
+          </Text>
+          <View style={styles.cursor} />
+        </View>
       </View>
 
-      {/* Button Keypad */}
-      <View style={styles.keypad}>
+      {/* Expand / Collapse Control Row */}
+      <View style={styles.controlRow}>
+        <TouchableOpacity
+          style={styles.expandToggleBtn}
+          onPress={() => setIsExpanded(!isExpanded)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name={isExpanded ? 'unfold-less-horizontal' : 'unfold-more-horizontal'}
+            size={22}
+            color="#A8A8A8"
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Keypad Section */}
+      <View style={[styles.keypad, isExpanded ? styles.keypadExpanded : styles.keypadCollapsed]}>
+
+        {/* Scientific Rows (Only visible in Expanded Mode) */}
+        {isExpanded && (
+          <>
+            {/* Scientific Row 1 */}
+            <View style={styles.row}>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('√')}>
+                <Text style={styles.btnSciText}>√</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('π')}>
+                <Text style={styles.btnSciText}>π</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('^')}>
+                <Text style={styles.btnSciText}>^</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('!')}>
+                <Text style={styles.btnSciText}>!</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Scientific Row 2 */}
+            <View style={styles.row}>
+              <TouchableOpacity
+                style={[styles.btnSci, !isDegree && styles.btnActive]}
+                onPress={() => setIsDegree(!isDegree)}
+              >
+                <Text style={styles.btnSciText}>{isDegree ? 'Deg' : 'Rad'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('sin')}>
+                <Text style={styles.btnSciText}>{isInv ? 'sin⁻¹' : 'sin'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('cos')}>
+                <Text style={styles.btnSciText}>{isInv ? 'cos⁻¹' : 'cos'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('tan')}>
+                <Text style={styles.btnSciText}>{isInv ? 'tan⁻¹' : 'tan'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Scientific Row 3 */}
+            <View style={styles.row}>
+              <TouchableOpacity
+                style={[styles.btnSci, isInv && styles.btnActive]}
+                onPress={() => setIsInv(!isInv)}
+              >
+                <Text style={styles.btnSciText}>Inv</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('e')}>
+                <Text style={styles.btnSciText}>{isInv ? 'eˣ' : 'e'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('ln')}>
+                <Text style={styles.btnSciText}>ln</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSci} onPress={() => handleScientific('log')}>
+                <Text style={styles.btnSciText}>log</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {/* Standard Keypad Rows */}
+
+        {/* Row 4 (or Row 1 Collapsed): AC | ( ) | % | ÷ */}
         <View style={styles.row}>
-          <TouchableOpacity style={[styles.btn, styles.btnFunc]} onPress={handleClear}>
-            <Text style={styles.btnFuncText}>AC</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnAc, isExpanded && styles.btnPill]}
+            onPress={handleClear}
+          >
+            <Text style={styles.btnAcText}>AC</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.btn, styles.btnFunc]} onPress={handleToggleSign}>
-            <Text style={styles.btnFuncText}>±</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnOp, isExpanded && styles.btnPill]}
+            onPress={handleParentheses}
+          >
+            <Text style={styles.btnOpText}>( )</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.btn, styles.btnFunc]} onPress={handlePercent}>
-            <Text style={styles.btnFuncText}>%</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnOp, isExpanded && styles.btnPill]}
+            onPress={handlePercent}
+          >
+            <Text style={styles.btnOpText}>%</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.btn, styles.btnOp]} onPress={() => handleOperator('÷')}>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnOp, isExpanded && styles.btnPill]}
+            onPress={() => handleOperator('÷')}
+          >
             <Text style={styles.btnOpText}>÷</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Row 5 (or Row 2 Collapsed): 7 | 8 | 9 | × */}
         <View style={styles.row}>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('7')}>
-            <Text style={styles.btnText}>7</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('7')}
+          >
+            <Text style={styles.btnNumText}>7</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('8')}>
-            <Text style={styles.btnText}>8</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('8')}
+          >
+            <Text style={styles.btnNumText}>8</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('9')}>
-            <Text style={styles.btnText}>9</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('9')}
+          >
+            <Text style={styles.btnNumText}>9</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.btn, styles.btnOp]} onPress={() => handleOperator('×')}>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnOp, isExpanded && styles.btnPill]}
+            onPress={() => handleOperator('×')}
+          >
             <Text style={styles.btnOpText}>×</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Row 6 (or Row 3 Collapsed): 4 | 5 | 6 | − */}
         <View style={styles.row}>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('4')}>
-            <Text style={styles.btnText}>4</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('4')}
+          >
+            <Text style={styles.btnNumText}>4</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('5')}>
-            <Text style={styles.btnText}>5</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('5')}
+          >
+            <Text style={styles.btnNumText}>5</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('6')}>
-            <Text style={styles.btnText}>6</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('6')}
+          >
+            <Text style={styles.btnNumText}>6</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.btn, styles.btnOp]} onPress={() => handleOperator('−')}>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnOp, isExpanded && styles.btnPill]}
+            onPress={() => handleOperator('−')}
+          >
             <Text style={styles.btnOpText}>−</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Row 7 (or Row 4 Collapsed): 1 | 2 | 3 | + */}
         <View style={styles.row}>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('1')}>
-            <Text style={styles.btnText}>1</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('1')}
+          >
+            <Text style={styles.btnNumText}>1</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('2')}>
-            <Text style={styles.btnText}>2</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('2')}
+          >
+            <Text style={styles.btnNumText}>2</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('3')}>
-            <Text style={styles.btnText}>3</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('3')}
+          >
+            <Text style={styles.btnNumText}>3</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.btn, styles.btnOp]} onPress={() => handleOperator('+')}>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnOp, isExpanded && styles.btnPill]}
+            onPress={() => handleOperator('+')}
+          >
             <Text style={styles.btnOpText}>+</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Row 8 (or Row 5 Collapsed): 0 | . | ⌫ | = */}
         <View style={styles.row}>
-          <TouchableOpacity style={styles.btn} onPress={handleBackspace}>
-            <Ionicons name="backspace-outline" size={24} color="#f8fafc" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('0')}>
-            <Text style={styles.btnText}>0</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={() => handleNumber('.')}>
-            <Text style={styles.btnText}>.</Text>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={() => handleNumber('0')}
+          >
+            <Text style={styles.btnNumText}>0</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.btn, styles.btnEqual]}
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={handleDecimal}
+          >
+            <Text style={styles.btnNumText}>.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnNum, isExpanded && styles.btnPill]}
+            onPress={handleBackspace}
+          >
+            <MaterialCommunityIcons name="backspace-outline" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnEqual, isExpanded && styles.btnPill]}
             onPress={handleEqual}
-            onLongPress={() => {
-              if (hasPin) {
-                handleEqual();
-              }
-            }}
           >
             <Text style={styles.btnEqualText}>=</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Initial Setup Wizard Modal */}
+      {/* History Drawer Modal */}
+      <Modal visible={showHistory} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.historyModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Calculation History</Text>
+              <TouchableOpacity onPress={() => setShowHistory(false)}>
+                <Ionicons name="close" size={24} color="#D1D1D1" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flex: 1, marginVertical: 12 }}>
+              {history.length === 0 ? (
+                <Text style={styles.emptyText}>No history yet</Text>
+              ) : (
+                history.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.historyCard}
+                    onPress={() => {
+                      setDisplay(item.result);
+                      setShowHistory(false);
+                    }}
+                  >
+                    <Text style={styles.historyCardExpr}>{item.expression}</Text>
+                    <Text style={styles.historyCardResult}>= {item.result}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+
+            {history.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearHistoryBtn}
+                onPress={() => setHistory([])}
+              >
+                <Text style={styles.clearHistoryText}>Clear History</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Options Menu Modal */}
+      <Modal visible={showMenu} animationType="fade" transparent>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowMenu(false)}>
+          <View style={styles.menuContent}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenu(false);
+                setShowHistory(true);
+              }}
+            >
+              <MaterialCommunityIcons name="history" size={20} color="#E3E3E3" />
+              <Text style={styles.menuItemText}>History</Text>
+            </TouchableOpacity>
+
+            {hasPin && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  setShowRecoveryModal(true);
+                }}
+              >
+                <Ionicons name="key-outline" size={20} color="#E3E3E3" />
+                <Text style={styles.menuItemText}>Reset Secret Passcode</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Secret PIN Initial Setup Modal */}
       <PinSetupModal
         visible={showPinSetup}
         initialPin={initialPinSetup}
@@ -259,42 +649,42 @@ export const Calculator: React.FC = () => {
       {/* Secret PIN Recovery Modal */}
       <Modal visible={showRecoveryModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Passcode Recovery</Text>
-            <Text style={styles.modalSubtitle}>
+          <View style={styles.recoveryModalContent}>
+            <Text style={styles.recoveryModalTitle}>Passcode Recovery</Text>
+            <Text style={styles.recoveryModalSubtitle}>
               Question: {securityQuestion || 'What is your secret hint or pet name?'}
             </Text>
 
             <TextInput
-              style={styles.modalInput}
+              style={styles.recoveryInput}
               placeholder="Your Recovery Answer"
-              placeholderTextColor="#64748b"
+              placeholderTextColor="#71717A"
               value={recoveryAnswer}
               onChangeText={setRecoveryAnswer}
             />
 
             <TextInput
-              style={styles.modalInput}
+              style={styles.recoveryInput}
               placeholder="New Secret PIN (4-8 digits)"
-              placeholderTextColor="#64748b"
+              placeholderTextColor="#71717A"
               keyboardType="number-pad"
               secureTextEntry
               value={newPinInput}
               onChangeText={setNewPinInput}
             />
 
-            <View style={styles.modalBtnRow}>
+            <View style={styles.recoveryBtnRow}>
               <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnCancel]}
+                style={[styles.recoveryBtn, styles.recoveryBtnCancel]}
                 onPress={() => setShowRecoveryModal(false)}
               >
-                <Text style={styles.modalBtnTextCancel}>Cancel</Text>
+                <Text style={styles.recoveryBtnTextCancel}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnSave]}
+                style={[styles.recoveryBtn, styles.recoveryBtnSave]}
                 onPress={handleRecoveryReset}
               >
-                <Text style={styles.modalBtnTextSave}>Reset PIN</Text>
+                <Text style={styles.recoveryBtnTextSave}>Reset PIN</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -304,27 +694,28 @@ export const Calculator: React.FC = () => {
   );
 };
 
+// Calculate size for 4-column grid layout
+const BTN_GAP = 12;
+const PADDING_HORIZ = 16;
+const AVAILABLE_WIDTH = SCREEN_WIDTH - PADDING_HORIZ * 2;
+const BTN_SIZE_COLLAPSED = Math.floor((AVAILABLE_WIDTH - BTN_GAP * 3) / 4);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#161616',
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  appTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#64748b',
-    letterSpacing: 0.5,
-  },
-  stealthBtn: {
-    padding: 6,
+  headerIconBtn: {
+    padding: 8,
+    borderRadius: 20,
   },
   displayContainer: {
     flex: 1,
@@ -333,125 +724,261 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 16,
   },
-  historyText: {
-    fontSize: 16,
-    color: '#475569',
-    marginBottom: 4,
-  },
   expressionText: {
     fontSize: 22,
-    color: '#94a3b8',
+    color: '#9E9E9E',
     marginBottom: 8,
+    textAlign: 'right',
+  },
+  displayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   displayText: {
     fontSize: 56,
     fontWeight: '300',
-    color: '#f8fafc',
+    color: '#FFFFFF',
+    textAlign: 'right',
+  },
+  cursor: {
+    width: 2.5,
+    height: 48,
+    backgroundColor: '#FFFFFF',
+    marginLeft: 4,
+    borderRadius: 1,
+  },
+  controlRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  expandToggleBtn: {
+    padding: 4,
   },
   keypad: {
-    paddingHorizontal: 12,
+    paddingHorizontal: PADDING_HORIZ,
+    gap: BTN_GAP,
+  },
+  keypadCollapsed: {
     paddingBottom: 24,
+  },
+  keypadExpanded: {
+    paddingBottom: 16,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: BTN_GAP,
   },
+
+  // Collapsed Circle Buttons
   btn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#1e293b',
+    width: BTN_SIZE_COLLAPSED,
+    height: BTN_SIZE_COLLAPSED,
+    borderRadius: BTN_SIZE_COLLAPSED / 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  btnText: {
-    fontSize: 28,
-    color: '#f8fafc',
+  btnPill: {
+    height: Math.floor(BTN_SIZE_COLLAPSED * 0.72),
+    borderRadius: 24,
+  },
+
+  // Scientific Stadium Buttons
+  btnSci: {
+    flex: 1,
+    height: Math.floor(BTN_SIZE_COLLAPSED * 0.62),
+    borderRadius: 20,
+    backgroundColor: '#353535',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  btnSciText: {
+    fontSize: 16,
+    color: '#E3E3E3',
     fontWeight: '400',
   },
-  btnFunc: {
-    backgroundColor: '#334155',
+  btnActive: {
+    backgroundColor: '#4E4E4E',
+    borderWidth: 1,
+    borderColor: '#71717A',
   },
-  btnFuncText: {
+
+  // Button Color Variations (Stock Android Dark Theme Palette)
+  btnAc: {
+    backgroundColor: '#9C9C9C', // Light silver / grey
+  },
+  btnAcText: {
     fontSize: 24,
-    color: '#cbd5e1',
+    color: '#141414',
     fontWeight: '500',
   },
   btnOp: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#353535', // Medium dark grey
   },
   btnOpText: {
-    fontSize: 32,
-    color: '#ffffff',
-    fontWeight: '500',
+    fontSize: 26,
+    color: '#E3E3E3',
+    fontWeight: '400',
+  },
+  btnNum: {
+    backgroundColor: '#252525', // Dark charcoal
+  },
+  btnNumText: {
+    fontSize: 30,
+    color: '#FFFFFF',
+    fontWeight: '400',
   },
   btnEqual: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#FFFFFF', // Pure White
   },
   btnEqualText: {
     fontSize: 34,
-    color: '#ffffff',
-    fontWeight: '600',
+    color: '#141414',
+    fontWeight: '400',
   },
+
+  // Modals & Menu
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
+  historyModalContent: {
+    backgroundColor: '#1E1E1E',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
+    maxHeight: '75%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2E2E2E',
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#f8fafc',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#71717A',
+    fontSize: 15,
+    marginTop: 24,
+  },
+  historyCard: {
+    backgroundColor: '#262626',
+    padding: 14,
+    borderRadius: 12,
     marginBottom: 8,
   },
-  modalSubtitle: {
+  historyCardExpr: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#A1A1AA',
+    marginBottom: 4,
+  },
+  historyCardResult: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  clearHistoryBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    backgroundColor: '#27272A',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  clearHistoryText: {
+    color: '#EF4444',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+
+  menuContent: {
+    position: 'absolute',
+    top: 50,
+    right: 16,
+    backgroundColor: '#262626',
+    borderRadius: 12,
+    paddingVertical: 8,
+    minWidth: 180,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  menuItemText: {
+    color: '#E3E3E3',
+    fontSize: 15,
+    fontWeight: '400',
+  },
+
+  recoveryModalContent: {
+    backgroundColor: '#262626',
+    borderRadius: 20,
+    padding: 20,
+    margin: 20,
+  },
+  recoveryModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 6,
+  },
+  recoveryModalSubtitle: {
+    fontSize: 14,
+    color: '#A1A1AA',
     marginBottom: 16,
   },
-  modalInput: {
-    backgroundColor: '#0f172a',
+  recoveryInput: {
+    backgroundColor: '#18181B',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#f8fafc',
+    color: '#FFFFFF',
     fontSize: 15,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#3F3F46',
   },
-  modalBtnRow: {
+  recoveryBtnRow: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 8,
   },
-  modalBtn: {
+  recoveryBtn: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
   },
-  modalBtnCancel: {
-    backgroundColor: '#334155',
+  recoveryBtnCancel: {
+    backgroundColor: '#3F3F46',
   },
-  modalBtnTextCancel: {
-    color: '#94a3b8',
+  recoveryBtnTextCancel: {
+    color: '#A1A1AA',
     fontWeight: '600',
   },
-  modalBtnSave: {
-    backgroundColor: '#2563eb',
+  recoveryBtnSave: {
+    backgroundColor: '#3B82F6',
   },
-  modalBtnTextSave: {
-    color: '#ffffff',
+  recoveryBtnTextSave: {
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
 });
