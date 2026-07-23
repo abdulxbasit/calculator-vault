@@ -17,7 +17,7 @@ import { CreateFolderModal } from './create-folder-modal';
 import { MoveFileModal } from './move-file-modal';
 
 export const DocumentsVault: React.FC = () => {
-  const { files, folders, addDocumentFilesBatch, deleteFile, deleteFolder } = useVault();
+  const { files, folders, addDocumentFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'ROOT'>('ALL');
 
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -33,6 +33,10 @@ export const DocumentsVault: React.FC = () => {
   });
 
   const activeFolder = docFolders.find((f) => f.id === selectedFolderId);
+
+  const handleImportFolder = async () => {
+    await importFolderFromFileManager('docs');
+  };
 
   const handlePickDocument = async () => {
     try {
@@ -177,6 +181,10 @@ export const DocumentsVault: React.FC = () => {
           <TouchableOpacity style={styles.newFolderBtn} onPress={() => setShowCreateFolder(true)}>
             <Ionicons name="folder-open-outline" size={18} color="#E3E3E3" />
           </TouchableOpacity>
+          <TouchableOpacity style={styles.importFolderHeaderBtn} onPress={handleImportFolder}>
+            <Ionicons name="folder-open" size={16} color="#38bdf8" />
+            <Text style={styles.importFolderHeaderBtnText}>Import Folder</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.importBtn} onPress={handlePickDocument}>
             <Ionicons name="add" size={20} color="#FFFFFF" />
             <Text style={styles.importBtnText}>Add Document</Text>
@@ -310,6 +318,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
+  },
+  importFolderHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0f172a',
+    borderColor: '#0284c7',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  importFolderHeaderBtnText: {
+    color: '#38bdf8',
+    fontWeight: '600',
+    fontSize: 12,
   },
   folderBar: {
     backgroundColor: '#181818',

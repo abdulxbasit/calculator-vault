@@ -24,7 +24,7 @@ export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
   category,
   onClose,
 }) => {
-  const { createFolder } = useVault();
+  const { createFolder, importFolderFromFileManager } = useVault();
   const [folderName, setFolderName] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
 
@@ -37,6 +37,14 @@ export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
     await createFolder(folderName, category, selectedColor);
     setFolderName('');
     onClose();
+  };
+
+  const handleImportFromFileManager = async () => {
+    const success = await importFolderFromFileManager(category, folderName);
+    if (success) {
+      setFolderName('');
+      onClose();
+    }
   };
 
   return (
@@ -78,12 +86,22 @@ export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
             ))}
           </View>
 
+          <TouchableOpacity
+            style={styles.importFolderBtn}
+            onPress={handleImportFromFileManager}
+          >
+            <Ionicons name="folder-open" size={18} color="#38bdf8" />
+            <Text style={styles.importFolderBtnText}>
+              Select & Import Folder from File Manager
+            </Text>
+          </TouchableOpacity>
+
           <View style={styles.btnRow}>
             <TouchableOpacity style={[styles.btn, styles.cancelBtn]} onPress={onClose}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.btn, styles.createBtn]} onPress={handleCreate}>
-              <Text style={styles.createBtnText}>Create Folder</Text>
+              <Text style={styles.createBtnText}>Create Empty</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -156,6 +174,23 @@ const styles = StyleSheet.create({
   colorDotSelected: {
     borderWidth: 3,
     borderColor: '#FFFFFF',
+  },
+  importFolderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#0284c7',
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  importFolderBtnText: {
+    color: '#38bdf8',
+    fontSize: 14,
+    fontWeight: '600',
   },
   btnRow: {
     flexDirection: 'row',

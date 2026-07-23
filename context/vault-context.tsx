@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform, Alert } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   VaultFolder,
   VaultFile,
@@ -38,6 +40,7 @@ interface VaultContextType {
   createFolder: (name: string, category: 'media' | 'docs', color?: string) => Promise<VaultFolder>;
   deleteFolder: (id: string, deleteContents?: boolean) => Promise<boolean>;
   renameFolder: (id: string, name: string) => Promise<boolean>;
+  importFolderFromFileManager: (category: 'media' | 'docs', customFolderName?: string) => Promise<boolean>;
 
   // Media & Files
   addMediaFile: (uri: string, originalName: string, type: 'image' | 'video', mimeType?: string, folderId?: string) => Promise<boolean>;
@@ -372,6 +375,92 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return true;
   };
 
+  const importFolderFromFileManager = async (
+    category: 'media' | 'docs',
+    customFolderName?: string
+  ): Promise<boolean> => {
+    try {
+      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          const dirUri = permissions.directoryUri;
+          const decodedUri = decodeURIComponent(dirUri);
+          const segments = decodedUri.split(/[:\/]/).filter(Boolean);
+          const detectedName = customFolderName?.trim() || segments[segments.length - 1] || 'Imported Folder';
+
+          const fileUris = await FileSystem.StorageAccessFramework.readDirectoryAsync(dirUri);
+          if (fileUris && fileUris.length > 0) {
+            const newFolder = await createFolder(detectedName, category);
+            if (category === 'media') {
+              const items = fileUris.map((uri) => {
+                const decoded = decodeURIComponent(uri);
+                const name = decoded.split('/').pop() || 'media_file';
+                const isVideo = /\.(mp4|mov|m4v|mkv|avi|webm)$/i.test(name);
+                return {
+                  uri,
+                  originalName: name,
+                  type: isVideo ? ('video' as const) : ('image' as const),
+                };
+              });
+              await addMediaFilesBatch(items, newFolder.id);
+            } else {
+              const items = fileUris.map((uri) => {
+                const decoded = decodeURIComponent(uri);
+                const name = decoded.split('/').pop() || 'document_file';
+                return {
+                  uri,
+                  originalName: name,
+                };
+              });
+              await addDocumentFilesBatch(items, newFolder.id);
+            }
+            return true;
+          }
+        }
+      }
+
+      // Fallback / iOS document picker multiple selection
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+        multiple: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const folderName = customFolderName?.trim() || 'Imported Folder';
+        const newFolder = await createFolder(folderName, category);
+
+        if (category === 'media') {
+          const items = result.assets.map((file) => {
+            const isVideo =
+              file.mimeType?.startsWith('video/') ||
+              /\.(mp4|mov|m4v|mkv|avi|webm)$/i.test(file.name);
+            return {
+              uri: file.uri,
+              originalName: file.name,
+              type: isVideo ? ('video' as const) : ('image' as const),
+              mimeType: file.mimeType,
+            };
+          });
+          await addMediaFilesBatch(items, newFolder.id);
+        } else {
+          const items = result.assets.map((file) => ({
+            uri: file.uri,
+            originalName: file.name,
+            mimeType: file.mimeType,
+          }));
+          await addDocumentFilesBatch(items, newFolder.id);
+        }
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error importing folder from file manager:', err);
+      Alert.alert('Import Failed', 'Could not import folder from file manager.');
+      return false;
+    }
+  };
+
   return (
     <VaultContext.Provider
       value={{
@@ -402,6 +491,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         addPassword,
         updatePassword,
         deletePassword,
+        importFolderFromFileManager,
       }}
     >
       {children}

@@ -44,12 +44,16 @@ const COLUMN_COUNT = 3;
 const ITEM_SIZE = (width - 32 - 16) / COLUMN_COUNT;
 
 export const MediaVault: React.FC = () => {
-  const { files, folders, addMediaFilesBatch, deleteFile, deleteFolder } = useVault();
+  const { files, folders, addMediaFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'ROOT'>('ALL');
 
   const [selectedFile, setSelectedFile] = useState<VaultFile | null>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [fileToMove, setFileToMove] = useState<VaultFile | null>(null);
+
+  const handleImportFolder = async () => {
+    await importFolderFromFileManager('media');
+  };
 
   // Picture Zoom Level State
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
@@ -209,9 +213,13 @@ export const MediaVault: React.FC = () => {
           <TouchableOpacity style={styles.newFolderBtn} onPress={() => setShowCreateFolder(true)}>
             <Ionicons name="folder-open-outline" size={18} color="#E3E3E3" />
           </TouchableOpacity>
+          <TouchableOpacity style={styles.importFolderHeaderBtn} onPress={handleImportFolder}>
+            <Ionicons name="folder-open" size={16} color="#38bdf8" />
+            <Text style={styles.importFolderHeaderBtnText}>Folder</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.importBtn} onPress={handlePickMedia}>
             <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text style={styles.importBtnText}>Import</Text>
+            <Text style={styles.importBtnText}>Gallery</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -426,6 +434,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
+  },
+  importFolderHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0f172a',
+    borderColor: '#0284c7',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  importFolderHeaderBtnText: {
+    color: '#38bdf8',
+    fontWeight: '600',
+    fontSize: 12,
   },
   folderBar: {
     backgroundColor: '#181818',
