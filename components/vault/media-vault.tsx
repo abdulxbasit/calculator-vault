@@ -44,7 +44,7 @@ const COLUMN_COUNT = 3;
 const ITEM_SIZE = (width - 32 - 16) / COLUMN_COUNT;
 
 export const MediaVault: React.FC = () => {
-  const { files, folders, addMediaFile, deleteFile, deleteFolder } = useVault();
+  const { files, folders, addMediaFilesBatch, deleteFile, deleteFolder } = useVault();
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'ROOT'>('ALL');
 
   const [selectedFile, setSelectedFile] = useState<VaultFile | null>(null);
@@ -94,6 +94,7 @@ export const MediaVault: React.FC = () => {
         mediaTypes: ['images', 'videos'],
         quality: 1,
         allowsMultipleSelection: true,
+        selectionLimit: 0,
       });
 
       if (!result.canceled && result.assets.length > 0) {
@@ -102,11 +103,18 @@ export const MediaVault: React.FC = () => {
             ? selectedFolderId
             : undefined;
 
-        for (const asset of result.assets) {
+        const itemsToImport = result.assets.map((asset, index) => {
           const type = asset.type === 'video' ? 'video' : 'image';
-          const name = asset.fileName || `${type}_${Date.now()}`;
-          await addMediaFile(asset.uri, name, type, asset.mimeType, targetFolderId);
-        }
+          const name = asset.fileName || `${type}_${Date.now()}_${index + 1}`;
+          return {
+            uri: asset.uri,
+            originalName: name,
+            type: type as 'image' | 'video',
+            mimeType: asset.mimeType,
+          };
+        });
+
+        await addMediaFilesBatch(itemsToImport, targetFolderId);
       }
     } catch (err) {
       console.error('Media import error:', err);

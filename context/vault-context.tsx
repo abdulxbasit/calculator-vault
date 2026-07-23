@@ -41,7 +41,9 @@ interface VaultContextType {
 
   // Media & Files
   addMediaFile: (uri: string, originalName: string, type: 'image' | 'video', mimeType?: string, folderId?: string) => Promise<boolean>;
+  addMediaFilesBatch: (items: { uri: string; originalName: string; type: 'image' | 'video'; mimeType?: string }[], folderId?: string) => Promise<boolean>;
   addDocumentFile: (uri: string, originalName: string, mimeType?: string, folderId?: string) => Promise<boolean>;
+  addDocumentFilesBatch: (items: { uri: string; originalName: string; mimeType?: string }[], folderId?: string) => Promise<boolean>;
   moveFileToFolder: (fileId: string, folderId?: string) => Promise<boolean>;
   deleteFile: (id: string) => Promise<boolean>;
 
@@ -204,7 +206,38 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return true;
   };
 
-  // Media
+  // Media Batch
+  const addMediaFilesBatch = async (
+    items: {
+      uri: string;
+      originalName: string;
+      type: 'image' | 'video';
+      mimeType?: string;
+    }[],
+    folderId?: string
+  ): Promise<boolean> => {
+    const newFiles: VaultFile[] = [];
+    for (const item of items) {
+      const created = await copyFileToVault(item.uri, 'media', item.originalName, item.type, item.mimeType);
+      if (created) {
+        if (folderId) {
+          created.folderId = folderId;
+        }
+        newFiles.push(created);
+      }
+    }
+    if (newFiles.length > 0) {
+      let finalFiles: VaultFile[] = [];
+      setFiles((prevFiles) => {
+        finalFiles = [...newFiles, ...prevFiles];
+        return finalFiles;
+      });
+      await persistState(folders, finalFiles, notes, passwords);
+      return true;
+    }
+    return false;
+  };
+
   const addMediaFile = async (
     uri: string,
     originalName: string,
@@ -212,37 +245,47 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     mimeType?: string,
     folderId?: string
   ): Promise<boolean> => {
-    const newFile = await copyFileToVault(uri, 'media', originalName, type, mimeType);
-    if (newFile) {
-      if (folderId) {
-        newFile.folderId = folderId;
+    return addMediaFilesBatch([{ uri, originalName, type, mimeType }], folderId);
+  };
+
+  // Documents Batch
+  const addDocumentFilesBatch = async (
+    items: {
+      uri: string;
+      originalName: string;
+      mimeType?: string;
+    }[],
+    folderId?: string
+  ): Promise<boolean> => {
+    const newFiles: VaultFile[] = [];
+    for (const item of items) {
+      const created = await copyFileToVault(item.uri, 'docs', item.originalName, 'document', item.mimeType);
+      if (created) {
+        if (folderId) {
+          created.folderId = folderId;
+        }
+        newFiles.push(created);
       }
-      const updated = [newFile, ...files];
-      setFiles(updated);
-      await persistState(folders, updated, notes, passwords);
+    }
+    if (newFiles.length > 0) {
+      let finalFiles: VaultFile[] = [];
+      setFiles((prevFiles) => {
+        finalFiles = [...newFiles, ...prevFiles];
+        return finalFiles;
+      });
+      await persistState(folders, finalFiles, notes, passwords);
       return true;
     }
     return false;
   };
 
-  // Documents
   const addDocumentFile = async (
     uri: string,
     originalName: string,
     mimeType?: string,
     folderId?: string
   ): Promise<boolean> => {
-    const newFile = await copyFileToVault(uri, 'docs', originalName, 'document', mimeType);
-    if (newFile) {
-      if (folderId) {
-        newFile.folderId = folderId;
-      }
-      const updated = [newFile, ...files];
-      setFiles(updated);
-      await persistState(folders, updated, notes, passwords);
-      return true;
-    }
-    return false;
+    return addDocumentFilesBatch([{ uri, originalName, mimeType }], folderId);
   };
 
   const moveFileToFolder = async (fileId: string, folderId?: string): Promise<boolean> => {
@@ -348,7 +391,9 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         deleteFolder,
         renameFolder,
         addMediaFile,
+        addMediaFilesBatch,
         addDocumentFile,
+        addDocumentFilesBatch,
         moveFileToFolder,
         deleteFile,
         addNote,

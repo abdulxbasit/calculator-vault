@@ -17,7 +17,7 @@ import { CreateFolderModal } from './create-folder-modal';
 import { MoveFileModal } from './move-file-modal';
 
 export const DocumentsVault: React.FC = () => {
-  const { files, folders, addDocumentFile, deleteFile, deleteFolder } = useVault();
+  const { files, folders, addDocumentFilesBatch, deleteFile, deleteFolder } = useVault();
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'ROOT'>('ALL');
 
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -39,6 +39,7 @@ export const DocumentsVault: React.FC = () => {
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
         copyToCacheDirectory: true,
+        multiple: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -47,9 +48,13 @@ export const DocumentsVault: React.FC = () => {
             ? selectedFolderId
             : undefined;
 
-        for (const file of result.assets) {
-          await addDocumentFile(file.uri, file.name, file.mimeType, targetFolderId);
-        }
+        const itemsToImport = result.assets.map((file) => ({
+          uri: file.uri,
+          originalName: file.name,
+          mimeType: file.mimeType,
+        }));
+
+        await addDocumentFilesBatch(itemsToImport, targetFolderId);
       }
     } catch (err) {
       console.error('Document import error:', err);
