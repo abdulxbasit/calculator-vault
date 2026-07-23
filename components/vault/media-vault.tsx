@@ -1,0 +1,581 @@
+import React, { useState } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  FlatList,
+  Image,
+  Modal,
+  Alert,
+  Dimensions,
+  ScrollView,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as Sharing from 'expo-sharing';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useVault } from '../../context/vault-context';
+import { VaultFile, VaultFolder } from '../../services/vault-storage';
+import { CreateFolderModal } from './create-folder-modal';
+import { MoveFileModal } from './move-file-modal';
+import { PinchZoomImage } from './pinch-zoom-image';
+
+const { width, height } = Dimensions.get('window');
+const COLUMN_COUNT = 3;
+const ITEM_SIZE = (width - 32 - 16) / COLUMN_COUNT;
+
+export const MediaVault: React.FC = () => {
+  const { files, folders, addMediaFile, deleteFile, deleteFolder } = useVault();
+  const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'ROOT'>('ALL');
+
+  const [selectedFile, setSelectedFile] = useState<VaultFile | null>(null);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [fileToMove, setFileToMove] = useState<VaultFile | null>(null);
+
+  // Picture Zoom Level State
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+
+  const mediaFolders = folders.filter((f) => f.category === 'media');
+  const allMediaFiles = files.filter((f) => f.type === 'image' || f.type === 'video');
+
+  const filteredMediaFiles = allMediaFiles.filter((f) => {
+    if (selectedFolderId === 'ALL') return true;
+    if (selectedFolderId === 'ROOT') return !f.folderId;
+    return f.folderId === selectedFolderId;
+  });
+
+  const activeFolder = mediaFolders.find((f) => f.id === selectedFolderId);
+
+  const handleOpenPreview = (file: VaultFile) => {
+    setZoomLevel(1.0);
+    setSelectedFile(file);
+  };
+
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(prev + 0.5, 4.0));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => Math.max(prev - 0.5, 1.0));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1.0);
+  };
+
+  const handlePickMedia = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Permission to access media library is required.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        quality: 1,
+        allowsMultipleSelection: true,
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        const targetFolderId =
+          selectedFolderId !== 'ALL' && selectedFolderId !== 'ROOT'
+            ? selectedFolderId
+            : undefined;
+
+        for (const asset of result.assets) {
+          const type = asset.type === 'video' ? 'video' : 'image';
+          const name = asset.fileName || `${type}_${Date.now()}`;
+          await addMediaFile(asset.uri, name, type, asset.mimeType, targetFolderId);
+        }
+      }
+    } catch (err) {
+      console.error('Media import error:', err);
+      Alert.alert('Import Failed', 'Unable to import selected media file.');
+    }
+  };
+
+  const handleShare = async (file: VaultFile) => {
+    try {
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert('Sharing Unavailable', 'Sharing is not supported on this device.');
+        return;
+      }
+      await Sharing.shareAsync(file.uri, {
+        mimeType: file.mimeType || (file.type === 'image' ? 'image/jpeg' : 'video/mp4'),
+        dialogTitle: `Export ${file.name}`,
+      });
+    } catch (err) {
+      console.error('Error sharing media file:', err);
+    }
+  };
+
+  const handleDelete = (file: VaultFile) => {
+    Alert.alert('Delete Media', `Are you sure you want to permanently delete "${file.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteFile(file.id);
+          if (selectedFile?.id === file.id) {
+            setSelectedFile(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteFolder = (folder: VaultFolder) => {
+    Alert.alert(
+      'Delete Folder',
+      `Delete "${folder.name}"? Files inside will be moved to Root.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Folder Only',
+          onPress: async () => {
+            await deleteFolder(folder.id, false);
+            setSelectedFolderId('ALL');
+          },
+        },
+        {
+          text: 'Delete Folder & Files',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteFolder(folder.id, true);
+            setSelectedFolderId('ALL');
+          },
+        },
+      ]
+    );
+  };
+
+  const renderItem = ({ item }: { item: VaultFile }) => (
+    <TouchableOpacity
+      style={styles.gridItem}
+      onPress={() => handleOpenPreview(item)}
+      activeOpacity={0.8}
+    >
+      <Image source={{ uri: item.uri }} style={styles.thumbnail} />
+      {item.type === 'video' && (
+        <View style={styles.videoBadge}>
+          <Ionicons name="play-circle" size={24} color="#ffffff" />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.sectionTitle}>
+            {activeFolder ? `Folder: ${activeFolder.name}` : 'Photos & Videos'}
+          </Text>
+          <Text style={styles.subtitle}>{filteredMediaFiles.length} item(s)</Text>
+        </View>
+
+        <View style={styles.headerBtnRow}>
+          <TouchableOpacity style={styles.newFolderBtn} onPress={() => setShowCreateFolder(true)}>
+            <Ionicons name="folder-open-outline" size={18} color="#38bdf8" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.importBtn} onPress={handlePickMedia}>
+            <Ionicons name="add" size={20} color="#ffffff" />
+            <Text style={styles.importBtnText}>Import</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Folder Chips Selector */}
+      <View style={styles.folderBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderChips}>
+          <TouchableOpacity
+            style={[styles.chip, selectedFolderId === 'ALL' && styles.chipActive]}
+            onPress={() => setSelectedFolderId('ALL')}
+          >
+            <Text style={[styles.chipText, selectedFolderId === 'ALL' && styles.chipTextActive]}>
+              All ({allMediaFiles.length})
+            </Text>
+          </TouchableOpacity>
+
+          {mediaFolders.map((f) => {
+            const count = allMediaFiles.filter((item) => item.folderId === f.id).length;
+            const isActive = selectedFolderId === f.id;
+            return (
+              <TouchableOpacity
+                key={f.id}
+                style={[
+                  styles.chip,
+                  isActive && styles.chipActive,
+                  { borderColor: f.color || '#334155' },
+                ]}
+                onPress={() => setSelectedFolderId(f.id)}
+                onLongPress={() => handleDeleteFolder(f)}
+              >
+                <Ionicons name="folder-sharp" size={14} color={f.color || '#38bdf8'} />
+                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                  {f.name} ({count})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Grid or Empty State */}
+      {filteredMediaFiles.length === 0 ? (
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconCircle}>
+            <Ionicons name="images-outline" size={48} color="#64748b" />
+          </View>
+          <Text style={styles.emptyTitle}>No Media Here</Text>
+          <Text style={styles.emptySubtitle}>
+            Import secret photos & videos from your gallery to keep them safe in this folder.
+          </Text>
+          <TouchableOpacity style={styles.emptyBtn} onPress={handlePickMedia}>
+            <Text style={styles.emptyBtnText}>Import Now</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredMediaFiles}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          numColumns={COLUMN_COUNT}
+          contentContainerStyle={styles.gridContainer}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* Media Fullscreen Interactive Zoom Preview Modal */}
+      {selectedFile && (
+        <Modal visible transparent animationType="fade">
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <View style={styles.modalOverlay}>
+            {/* Header */}
+            <View style={styles.previewHeader}>
+              <Text style={styles.previewTitle} numberOfLines={1}>
+                {selectedFile.name}
+              </Text>
+
+              {/* Zoom Action Controls Bar */}
+              {selectedFile.type === 'image' && (
+                <View style={styles.zoomControlBar}>
+                  <TouchableOpacity style={styles.zoomBtn} onPress={handleZoomOut}>
+                    <Ionicons name="remove-circle-outline" size={22} color="#f8fafc" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.zoomResetBadge} onPress={handleResetZoom}>
+                    <Text style={styles.zoomResetText}>{Math.round(zoomLevel * 100)}%</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.zoomBtn} onPress={handleZoomIn}>
+                    <Ionicons name="add-circle-outline" size={22} color="#f8fafc" />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                <Ionicons name="close" size={28} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Content View with Gesture-driven Pinch & Touch Zoom */}
+            <View style={styles.previewContent}>
+              {selectedFile.type === 'image' ? (
+                <PinchZoomImage
+                  uri={selectedFile.uri}
+                  zoomLevel={zoomLevel}
+                  onZoomChange={setZoomLevel}
+                />
+              ) : (
+                <Image
+                  source={{ uri: selectedFile.uri }}
+                  style={styles.fullImage}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+
+            {/* Footer Toolbar */}
+            <View style={styles.previewFooter}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(selectedFile)}>
+                <Ionicons name="share-outline" size={20} color="#38bdf8" />
+                <Text style={styles.actionText}>Export</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => {
+                  setFileToMove(selectedFile);
+                  setSelectedFile(null);
+                }}
+              >
+                <Ionicons name="folder-open-outline" size={20} color="#facc15" />
+                <Text style={[styles.actionText, { color: '#facc15' }]}>Move</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => handleDelete(selectedFile)}
+              >
+                <Ionicons name="trash-outline" size={20} color="#f87171" />
+                <Text style={[styles.actionText, { color: '#f87171' }]}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </GestureHandlerRootView>
+      </Modal>
+      )}
+
+      {/* Folder Creation Modal */}
+      <CreateFolderModal
+        visible={showCreateFolder}
+        category="media"
+        onClose={() => setShowCreateFolder(false)}
+      />
+
+      {/* Move File Modal */}
+      <MoveFileModal
+        visible={!!fileToMove}
+        file={fileToMove}
+        category="media"
+        onClose={() => setFileToMove(null)}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f8fafc',
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  headerBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  newFolderBtn: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  importBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  importBtnText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  folderBar: {
+    backgroundColor: '#090d16',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+  },
+  folderChips: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  chipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#3b82f6',
+  },
+  chipText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  chipTextActive: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  gridContainer: {
+    padding: 16,
+    gap: 8,
+  },
+  gridItem: {
+    width: ITEM_SIZE,
+    height: ITEM_SIZE,
+    marginRight: 8,
+    marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#1e293b',
+    position: 'relative',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  videoBadge: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#1e293b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#cbd5e1',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  emptyBtn: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  emptyBtnText: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: '#020617',
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    paddingBottom: 16,
+    backgroundColor: '#0f172a',
+  },
+  previewTitle: {
+    color: '#f8fafc',
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 8,
+  },
+  zoomControlBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginRight: 12,
+  },
+  zoomBtn: {
+    padding: 2,
+  },
+  zoomResetBadge: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  zoomResetText: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  previewContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  zoomScrollView: {
+    width: width,
+    height: height - 140,
+  },
+  zoomScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullImage: {
+    width: width,
+    height: height * 0.7,
+  },
+  previewFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 16,
+    backgroundColor: '#0f172a',
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  actionText: {
+    color: '#38bdf8',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+});
