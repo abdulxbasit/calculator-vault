@@ -51,7 +51,7 @@ export const PinSetupModal: React.FC<PinSetupModalProps> = ({ visible, initialPi
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.overlay}

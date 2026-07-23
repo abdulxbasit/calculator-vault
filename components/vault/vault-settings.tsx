@@ -7,6 +7,7 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVault } from '../../context/vault-context';
@@ -15,10 +16,8 @@ export const VaultSettings: React.FC = () => {
   const {
     securityQuestion,
     setupPin,
-    lockVault,
     files,
     notes,
-    passwords,
   } = useVault();
 
   const [newPin, setNewPin] = useState('');
@@ -51,39 +50,49 @@ export const VaultSettings: React.FC = () => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* App Info Header */}
+      <View style={styles.appInfoCard}>
+        <Image
+          source={require('../../assets/images/icon.png')}
+          style={styles.appLogoImage}
+          resizeMode="cover"
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.appName}>Vault Calculator</Text>
+          <Text style={styles.appVersion}>Encrypted & Sandboxed Storage v1.0</Text>
+        </View>
+      </View>
+
+      <View style={styles.divider} />
+
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Vault Statistics</Text>
       </View>
 
+      {/* Compact 4-Card Stats Grid */}
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
-          <Ionicons name="images" size={24} color="#38bdf8" />
+          <Ionicons name="images" size={18} color="#38bdf8" />
           <Text style={styles.statNumber}>{photosCount}</Text>
           <Text style={styles.statLabel}>Photos</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="videocam" size={24} color="#a855f7" />
+          <Ionicons name="videocam" size={18} color="#a855f7" />
           <Text style={styles.statNumber}>{videosCount}</Text>
           <Text style={styles.statLabel}>Videos</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="document-text" size={24} color="#facc15" />
+          <Ionicons name="document-text" size={18} color="#facc15" />
           <Text style={styles.statNumber}>{docsCount}</Text>
-          <Text style={styles.statLabel}>Documents</Text>
+          <Text style={styles.statLabel}>Docs</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="journal" size={24} color="#4ade80" />
+          <Ionicons name="journal" size={18} color="#4ade80" />
           <Text style={styles.statNumber}>{notes.length}</Text>
           <Text style={styles.statLabel}>Notes</Text>
-        </View>
-
-        <View style={styles.statCard}>
-          <Ionicons name="key" size={24} color="#fb923c" />
-          <Text style={styles.statNumber}>{passwords.length}</Text>
-          <Text style={styles.statLabel}>Logins</Text>
         </View>
       </View>
 
@@ -136,7 +145,7 @@ export const VaultSettings: React.FC = () => {
 
       <View style={styles.infoBox}>
         <View style={styles.infoRow}>
-          <Ionicons name="lock-closed" size={20} color="#4ade80" />
+          <Ionicons name="lock-closed" size={18} color="#4ade80" />
           <Text style={styles.infoText}>
             <Text style={{ fontWeight: 'bold', color: '#f8fafc' }}>Auto-Lock on Background: </Text>
             Whenever you switch apps, home screen, or lock phone, the secret vault instantly locks.
@@ -144,18 +153,13 @@ export const VaultSettings: React.FC = () => {
         </View>
 
         <View style={styles.infoRow}>
-          <Ionicons name="eye-off" size={20} color="#38bdf8" />
+          <Ionicons name="eye-off" size={18} color="#38bdf8" />
           <Text style={styles.infoText}>
             <Text style={{ fontWeight: 'bold', color: '#f8fafc' }}>Calculator Stealth Mode: </Text>
             The front interface acts as a genuine math calculator to protect your privacy.
           </Text>
         </View>
       </View>
-
-      <TouchableOpacity style={styles.lockOutBtn} onPress={lockVault}>
-        <Ionicons name="log-out-outline" size={20} color="#ffffff" />
-        <Text style={styles.lockOutBtnText}>Lock Secret Vault Now</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -167,7 +171,32 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 40,
+  },
+  appInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#262626',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#383838',
+  },
+  appLogoImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+  },
+  appName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  appVersion: {
+    fontSize: 12,
+    color: '#A1A1AA',
+    marginTop: 2,
   },
   sectionHeader: {
     marginBottom: 12,
@@ -179,28 +208,26 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 12,
+    gap: 8,
   },
   statCard: {
     flex: 1,
-    minWidth: '45%',
     backgroundColor: '#262626',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#383838',
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginVertical: 4,
+    marginVertical: 2,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#A1A1AA',
   },
   divider: {
@@ -251,7 +278,6 @@ const styles = StyleSheet.create({
     gap: 14,
     borderWidth: 1,
     borderColor: '#383838',
-    marginBottom: 16,
   },
   infoRow: {
     flexDirection: 'row',
@@ -263,22 +289,5 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
     fontSize: 13,
     lineHeight: 18,
-  },
-  lockOutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#3A1E1E',
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#EF4444',
-  },
-  lockOutBtnText: {
-    color: '#F87171',
-    fontWeight: 'bold',
-    fontSize: 15,
   },
 });

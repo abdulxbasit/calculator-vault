@@ -253,11 +253,20 @@ export const MediaVault: React.FC = () => {
 
       {/* Media Fullscreen Interactive Zoom Preview Modal */}
       {selectedFile && (
-        <Modal visible transparent animationType="fade">
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedFile(null)}
+        >
           <GestureHandlerRootView style={{ flex: 1 }}>
             <View style={styles.modalOverlay}>
             {/* Header */}
             <View style={styles.previewHeader}>
+              <TouchableOpacity onPress={() => setSelectedFile(null)} style={styles.headerBackBtn}>
+                <Ionicons name="arrow-back" size={24} color="#ffffff" />
+              </TouchableOpacity>
+
               <Text style={styles.previewTitle} numberOfLines={1}>
                 {selectedFile.name}
               </Text>
@@ -278,10 +287,6 @@ export const MediaVault: React.FC = () => {
                   </TouchableOpacity>
                 </View>
               )}
-
-              <TouchableOpacity onPress={() => setSelectedFile(null)}>
-                <Ionicons name="close" size={28} color="#ffffff" />
-              </TouchableOpacity>
             </View>
 
             {/* Content View with Gesture-driven Pinch & Touch Zoom */}
@@ -502,19 +507,22 @@ const styles = StyleSheet.create({
   },
   previewHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 16,
     backgroundColor: '#181818',
+    gap: 12,
+  },
+  headerBackBtn: {
+    paddingRight: 4,
+    paddingVertical: 4,
   },
   previewTitle: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
     flex: 1,
-    marginRight: 8,
   },
   zoomControlBar: {
     flexDirection: 'row',

@@ -566,7 +566,7 @@ export const Calculator: React.FC = () => {
       </View>
 
       {/* History Drawer Modal */}
-      <Modal visible={showHistory} animationType="slide" transparent>
+      <Modal visible={showHistory} animationType="slide" transparent onRequestClose={() => setShowHistory(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.historyModalContent}>
             <View style={styles.modalHeader}>
@@ -609,7 +609,7 @@ export const Calculator: React.FC = () => {
       </Modal>
 
       {/* Options Menu Modal */}
-      <Modal visible={showMenu} animationType="fade" transparent>
+      <Modal visible={showMenu} animationType="fade" transparent onRequestClose={() => setShowMenu(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowMenu(false)}>
           <View style={styles.menuContent}>
             <TouchableOpacity
@@ -647,7 +647,7 @@ export const Calculator: React.FC = () => {
       />
 
       {/* Secret PIN Recovery Modal */}
-      <Modal visible={showRecoveryModal} transparent animationType="fade">
+      <Modal visible={showRecoveryModal} transparent animationType="fade" onRequestClose={() => setShowRecoveryModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.recoveryModalContent}>
             <Text style={styles.recoveryModalTitle}>Passcode Recovery</Text>

@@ -154,7 +154,7 @@ export const PasswordsVault: React.FC = () => {
       )}
 
       {/* Editor Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>

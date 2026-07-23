@@ -60,7 +60,7 @@ export const MoveFileModal: React.FC<MoveFileModalProps> = ({
   ];
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.card}>
           <View style={styles.header}>
