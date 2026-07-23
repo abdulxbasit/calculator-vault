@@ -15,11 +15,29 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useVault } from '../../context/vault-context';
 import { VaultFile, VaultFolder } from '../../services/vault-storage';
 import { CreateFolderModal } from './create-folder-modal';
 import { MoveFileModal } from './move-file-modal';
 import { PinchZoomImage } from './pinch-zoom-image';
+
+const VaultVideoPlayer: React.FC<{ uri: string }> = ({ uri }) => {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.play();
+  });
+
+  return (
+    <VideoView
+      style={styles.fullVideo}
+      player={player}
+      allowsFullscreen
+      allowsPictureInPicture
+      nativeControls
+    />
+  );
+};
 
 const { width, height } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -289,7 +307,7 @@ export const MediaVault: React.FC = () => {
               )}
             </View>
 
-            {/* Content View with Gesture-driven Pinch & Touch Zoom */}
+            {/* Content View with Gesture-driven Pinch & Touch Zoom / Video Player */}
             <View style={styles.previewContent}>
               {selectedFile.type === 'image' ? (
                 <PinchZoomImage
@@ -298,11 +316,7 @@ export const MediaVault: React.FC = () => {
                   onZoomChange={setZoomLevel}
                 />
               ) : (
-                <Image
-                  source={{ uri: selectedFile.uri }}
-                  style={styles.fullImage}
-                  resizeMode="contain"
-                />
+                <VaultVideoPlayer uri={selectedFile.uri} />
               )}
             </View>
 
@@ -552,6 +566,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  fullVideo: {
+    width: '100%',
+    height: '100%',
   },
   zoomScrollView: {
     width: width,
