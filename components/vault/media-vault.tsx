@@ -47,7 +47,8 @@ export const MediaVault: React.FC = () => {
   const { files, folders, addMediaFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'ROOT'>('ALL');
 
-  const [selectedFile, setSelectedFile] = useState<VaultFile | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const flatListRef = React.useRef<FlatList>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [fileToMove, setFileToMove] = useState<VaultFile | null>(null);
 
@@ -68,11 +69,14 @@ export const MediaVault: React.FC = () => {
   });
 
   const activeFolder = mediaFolders.find((f) => f.id === selectedFolderId);
+  const selectedFile = selectedIndex !== null && selectedIndex >= 0 && selectedIndex < filteredMediaFiles.length ? filteredMediaFiles[selectedIndex] : null;
 
-  const handleOpenPreview = (file: VaultFile) => {
+  const handleOpenPreview = (index: number) => {
     setZoomLevel(1.0);
-    setSelectedFile(file);
+    setSelectedIndex(index);
   };
+
+
 
   const handleZoomIn = () => {
     setZoomLevel((prev) => Math.min(prev + 0.5, 4.0));
@@ -150,8 +154,10 @@ export const MediaVault: React.FC = () => {
         style: 'destructive',
         onPress: async () => {
           await deleteFile(file.id);
-          if (selectedFile?.id === file.id) {
-            setSelectedFile(null);
+          if (filteredMediaFiles.length <= 1) {
+            setSelectedIndex(null);
+          } else if (selectedIndex !== null && selectedIndex >= filteredMediaFiles.length - 1) {
+            setSelectedIndex(filteredMediaFiles.length - 2);
           }
         },
       },
@@ -183,10 +189,10 @@ export const MediaVault: React.FC = () => {
     );
   };
 
-  const renderItem = ({ item }: { item: VaultFile }) => (
+  const renderItem = ({ item, index }: { item: VaultFile; index: number }) => (
     <TouchableOpacity
       style={styles.gridItem}
-      onPress={() => handleOpenPreview(item)}
+      onPress={() => handleOpenPreview(index)}
       activeOpacity={0.8}
     >
       <Image source={{ uri: item.uri }} style={styles.thumbnail} />
@@ -285,86 +291,117 @@ export const MediaVault: React.FC = () => {
         />
       )}
 
-      {/* Media Fullscreen Interactive Zoom Preview Modal */}
-      {selectedFile && (
+      {/* Media Fullscreen Interactive Zoom Preview Modal with Left/Right Swipe */}
+      {selectedIndex !== null && selectedFile && (
         <Modal
           visible
           transparent
           animationType="fade"
-          onRequestClose={() => setSelectedFile(null)}
+          onRequestClose={() => setSelectedIndex(null)}
         >
           <GestureHandlerRootView style={{ flex: 1 }}>
             <View style={styles.modalOverlay}>
-            {/* Header */}
-            <View style={styles.previewHeader}>
-              <TouchableOpacity onPress={() => setSelectedFile(null)} style={styles.headerBackBtn}>
-                <Ionicons name="arrow-back" size={24} color="#ffffff" />
-              </TouchableOpacity>
+              {/* Header */}
+              <View style={styles.previewHeader}>
+                <TouchableOpacity onPress={() => setSelectedIndex(null)} style={styles.headerBackBtn}>
+                  <Ionicons name="arrow-back" size={24} color="#ffffff" />
+                </TouchableOpacity>
 
-              <Text style={styles.previewTitle} numberOfLines={1}>
-                {selectedFile.name}
-              </Text>
-
-              {/* Zoom Action Controls Bar */}
-              {selectedFile.type === 'image' && (
-                <View style={styles.zoomControlBar}>
-                  <TouchableOpacity style={styles.zoomBtn} onPress={handleZoomOut}>
-                    <Ionicons name="remove-circle-outline" size={22} color="#f8fafc" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.zoomResetBadge} onPress={handleResetZoom}>
-                    <Text style={styles.zoomResetText}>{Math.round(zoomLevel * 100)}%</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.zoomBtn} onPress={handleZoomIn}>
-                    <Ionicons name="add-circle-outline" size={22} color="#f8fafc" />
-                  </TouchableOpacity>
+                <View style={styles.previewTitleContainer}>
+                  <Text style={styles.previewTitle} numberOfLines={1}>
+                    {selectedFile.name}
+                  </Text>
+                  <Text style={styles.previewCounter}>
+                    {selectedIndex + 1} of {filteredMediaFiles.length}
+                  </Text>
                 </View>
-              )}
-            </View>
 
-            {/* Content View with Gesture-driven Pinch & Touch Zoom / Video Player */}
-            <View style={styles.previewContent}>
-              {selectedFile.type === 'image' ? (
-                <PinchZoomImage
-                  uri={selectedFile.uri}
-                  zoomLevel={zoomLevel}
-                  onZoomChange={setZoomLevel}
+                {/* Zoom Action Controls Bar */}
+                {selectedFile.type === 'image' && (
+                  <View style={styles.zoomControlBar}>
+                    <TouchableOpacity style={styles.zoomBtn} onPress={handleZoomOut}>
+                      <Ionicons name="remove-circle-outline" size={22} color="#f8fafc" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.zoomResetBadge} onPress={handleResetZoom}>
+                      <Text style={styles.zoomResetText}>{Math.round(zoomLevel * 100)}%</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.zoomBtn} onPress={handleZoomIn}>
+                      <Ionicons name="add-circle-outline" size={22} color="#f8fafc" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {/* Horizontal Swipeable Content View */}
+              <View style={styles.previewContent}>
+                <FlatList
+                  ref={flatListRef}
+                  data={filteredMediaFiles}
+                  horizontal
+                  pagingEnabled
+                  scrollEnabled={zoomLevel <= 1.05}
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id}
+                  initialScrollIndex={selectedIndex}
+                  getItemLayout={(_, index) => ({
+                    length: width,
+                    offset: width * index,
+                    index,
+                  })}
+                  onMomentumScrollEnd={(e) => {
+                    const newIdx = Math.round(e.nativeEvent.contentOffset.x / width);
+                    if (newIdx >= 0 && newIdx < filteredMediaFiles.length && newIdx !== selectedIndex) {
+                      setSelectedIndex(newIdx);
+                      setZoomLevel(1.0);
+                    }
+                  }}
+                  renderItem={({ item }) => (
+                    <View style={{ width: width, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                      {item.type === 'image' ? (
+                        <PinchZoomImage
+                          uri={item.uri}
+                          zoomLevel={zoomLevel}
+                          onZoomChange={setZoomLevel}
+                        />
+                      ) : (
+                        <VaultVideoPlayer uri={item.uri} />
+                      )}
+                    </View>
+                  )}
                 />
-              ) : (
-                <VaultVideoPlayer uri={selectedFile.uri} />
-              )}
+              </View>
+
+              {/* Footer Toolbar */}
+              <View style={styles.previewFooter}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(selectedFile)}>
+                  <Ionicons name="share-outline" size={20} color="#38bdf8" />
+                  <Text style={styles.actionText}>Export</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => {
+                    setFileToMove(selectedFile);
+                    setSelectedIndex(null);
+                  }}
+                >
+                  <Ionicons name="folder-open-outline" size={20} color="#facc15" />
+                  <Text style={[styles.actionText, { color: '#facc15' }]}>Move</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => handleDelete(selectedFile)}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#f87171" />
+                  <Text style={[styles.actionText, { color: '#f87171' }]}>Delete</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-
-            {/* Footer Toolbar */}
-            <View style={styles.previewFooter}>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(selectedFile)}>
-                <Ionicons name="share-outline" size={20} color="#38bdf8" />
-                <Text style={styles.actionText}>Export</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => {
-                  setFileToMove(selectedFile);
-                  setSelectedFile(null);
-                }}
-              >
-                <Ionicons name="folder-open-outline" size={20} color="#facc15" />
-                <Text style={[styles.actionText, { color: '#facc15' }]}>Move</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => handleDelete(selectedFile)}
-              >
-                <Ionicons name="trash-outline" size={20} color="#f87171" />
-                <Text style={[styles.actionText, { color: '#f87171' }]}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </GestureHandlerRootView>
-      </Modal>
+          </GestureHandlerRootView>
+        </Modal>
       )}
 
       {/* Folder Creation Modal */}
@@ -564,11 +601,20 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     paddingVertical: 4,
   },
+  previewTitleContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
   previewTitle: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
-    flex: 1,
+  },
+  previewCounter: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
   },
   zoomControlBar: {
     flexDirection: 'row',

@@ -72,6 +72,7 @@ export const PinchZoomImage: React.FC<PinchZoomImageProps> = ({
 
   // Pan gesture for moving picture around when zoomed in
   const panGesture = Gesture.Pan()
+    .enabled(zoomLevel > 1.05)
     .onUpdate((event) => {
       'worklet';
       if (scale.value > 1) {
