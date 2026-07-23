@@ -230,11 +230,8 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     }
     if (newFiles.length > 0) {
-      let finalFiles: VaultFile[] = [];
-      setFiles((prevFiles) => {
-        finalFiles = [...newFiles, ...prevFiles];
-        return finalFiles;
-      });
+      const finalFiles = [...newFiles, ...files];
+      setFiles(finalFiles);
       await persistState(folders, finalFiles, notes, passwords);
       return true;
     }
@@ -271,11 +268,8 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     }
     if (newFiles.length > 0) {
-      let finalFiles: VaultFile[] = [];
-      setFiles((prevFiles) => {
-        finalFiles = [...newFiles, ...prevFiles];
-        return finalFiles;
-      });
+      const finalFiles = [...newFiles, ...files];
+      setFiles(finalFiles);
       await persistState(folders, finalFiles, notes, passwords);
       return true;
     }
@@ -380,40 +374,65 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     customFolderName?: string
   ): Promise<boolean> => {
     try {
+      // Helper: create a folder object WITHOUT triggering a separate persistState
+      const makeFolderObject = (name: string): VaultFolder => ({
+        id: 'dir_' + Date.now().toString() + '_' + Math.random().toString(36).substring(2, 6),
+        name: name.trim(),
+        category,
+        color: '#3b82f6',
+        createdAt: Date.now(),
+      });
+
+      // Helper: copy a list of items to vault and return VaultFile records
+      const copyItems = async (
+        items: { uri: string; originalName: string; type?: 'image' | 'video'; mimeType?: string }[],
+        folderId: string
+      ): Promise<VaultFile[]> => {
+        const { copyFileToVault } = await import('../services/vault-storage');
+        const copied: VaultFile[] = [];
+        for (const item of items) {
+          const fileType = item.type ?? 'document';
+          const vaultCategory = fileType === 'document' ? 'docs' : 'media';
+          const created = await copyFileToVault(item.uri, vaultCategory, item.originalName, fileType as 'image' | 'video' | 'document', item.mimeType);
+          if (created) {
+            created.folderId = folderId;
+            copied.push(created);
+          }
+        }
+        return copied;
+      };
+
       if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (permissions.granted) {
           const dirUri = permissions.directoryUri;
           const decodedUri = decodeURIComponent(dirUri);
-          const segments = decodedUri.split(/[:\/]/).filter(Boolean);
+          const segments = decodedUri.split(/[:\\/]/).filter(Boolean);
           const detectedName = customFolderName?.trim() || segments[segments.length - 1] || 'Imported Folder';
 
           const fileUris = await FileSystem.StorageAccessFramework.readDirectoryAsync(dirUri);
           if (fileUris && fileUris.length > 0) {
-            const newFolder = await createFolder(detectedName, category);
-            if (category === 'media') {
-              const items = fileUris.map((uri) => {
-                const decoded = decodeURIComponent(uri);
-                const name = decoded.split('/').pop() || 'media_file';
-                const isVideo = /\.(mp4|mov|m4v|mkv|avi|webm)$/i.test(name);
-                return {
-                  uri,
-                  originalName: name,
-                  type: isVideo ? ('video' as const) : ('image' as const),
-                };
-              });
-              await addMediaFilesBatch(items, newFolder.id);
-            } else {
-              const items = fileUris.map((uri) => {
-                const decoded = decodeURIComponent(uri);
-                const name = decoded.split('/').pop() || 'document_file';
-                return {
-                  uri,
-                  originalName: name,
-                };
-              });
-              await addDocumentFilesBatch(items, newFolder.id);
-            }
+            const newFolder = makeFolderObject(detectedName);
+
+            const items = fileUris.map((uri) => {
+              const decoded = decodeURIComponent(uri);
+              const name = decoded.split('/').pop() || 'file';
+              const isVideo = /\.(mp4|mov|m4v|mkv|avi|webm)$/i.test(name);
+              return {
+                uri,
+                originalName: name,
+                type: (category === 'media' ? (isVideo ? 'video' : 'image') : 'document') as 'image' | 'video' | 'document',
+              };
+            });
+
+            const copiedFiles = await copyItems(items, newFolder.id);
+
+            // One atomic state + persist update with both new folder AND new files
+            const updatedFolders = [newFolder, ...folders];
+            const updatedFiles = [...copiedFiles, ...files];
+            setFolders(updatedFolders);
+            setFiles(updatedFiles);
+            await persistState(updatedFolders, updatedFiles, notes, passwords);
             return true;
           }
         }
@@ -428,29 +447,28 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const folderName = customFolderName?.trim() || 'Imported Folder';
-        const newFolder = await createFolder(folderName, category);
+        const newFolder = makeFolderObject(folderName);
 
-        if (category === 'media') {
-          const items = result.assets.map((file) => {
-            const isVideo =
-              file.mimeType?.startsWith('video/') ||
-              /\.(mp4|mov|m4v|mkv|avi|webm)$/i.test(file.name);
-            return {
-              uri: file.uri,
-              originalName: file.name,
-              type: isVideo ? ('video' as const) : ('image' as const),
-              mimeType: file.mimeType,
-            };
-          });
-          await addMediaFilesBatch(items, newFolder.id);
-        } else {
-          const items = result.assets.map((file) => ({
+        const items = result.assets.map((file) => {
+          const isVideo =
+            file.mimeType?.startsWith('video/') ||
+            /\.(mp4|mov|m4v|mkv|avi|webm)$/i.test(file.name);
+          return {
             uri: file.uri,
             originalName: file.name,
-            mimeType: file.mimeType,
-          }));
-          await addDocumentFilesBatch(items, newFolder.id);
-        }
+            type: (category === 'media' ? (isVideo ? 'video' : 'image') : 'document') as 'image' | 'video' | 'document',
+            mimeType: file.mimeType ?? undefined,
+          };
+        });
+
+        const copiedFiles = await copyItems(items, newFolder.id);
+
+        // One atomic state + persist update with both new folder AND new files
+        const updatedFolders = [newFolder, ...folders];
+        const updatedFiles = [...copiedFiles, ...files];
+        setFolders(updatedFolders);
+        setFiles(updatedFiles);
+        await persistState(updatedFolders, updatedFiles, notes, passwords);
         return true;
       }
       return false;
