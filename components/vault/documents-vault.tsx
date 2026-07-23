@@ -1,27 +1,129 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  FlatList,
-  Alert,
-  ScrollView,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
+import React, { useRef, useState, useEffect } from 'react';
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  BackHandler,
+} from 'react-native';
 import { useVault } from '../../context/vault-context';
 import { VaultFile, VaultFolder } from '../../services/vault-storage';
 import { CreateFolderModal } from './create-folder-modal';
 import { MoveFileModal } from './move-file-modal';
 
+const { width } = Dimensions.get('window');
+
+const DocFolderCard: React.FC<{
+  name: string;
+  count: number;
+  color?: string;
+  files: VaultFile[];
+  onPress: () => void;
+  onDelete?: () => void;
+  isAll?: boolean;
+}> = ({ name, count, color, files, onPress, onDelete, isAll }) => {
+  const previewFiles = files.slice(0, 3);
+
+  return (
+    <TouchableOpacity style={styles.folderCard} onPress={onPress} activeOpacity={0.85}>
+      <View style={styles.folderCardPreviewBox}>
+        <View style={[styles.emptyFolderIconCircle, { backgroundColor: (color || '#38bdf8') + '15' }]}>
+          <Ionicons name="documents" size={34} color={color || '#38bdf8'} />
+        </View>
+        {previewFiles.length > 0 && (
+          <View style={styles.docMiniChipStack}>
+            {previewFiles.map((file, idx) => (
+              <View key={file.id || idx} style={styles.docMiniChip}>
+                <Ionicons name="document-text" size={10} color={color || '#38bdf8'} />
+                <Text style={styles.docMiniChipText} numberOfLines={1}>
+                  {file.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.folderCardInfo}>
+        <View style={styles.folderCardTitleRow}>
+          <Text style={styles.folderCardTitle} numberOfLines={1}>
+            {name}
+          </Text>
+          {onDelete && !isAll && (
+            <TouchableOpacity onPress={onDelete} style={{ padding: 2 }}>
+              <Ionicons name="ellipsis-vertical" size={16} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text style={styles.folderCardCount}>{count} file(s)</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 export const DocumentsVault: React.FC = () => {
   const { files, folders, addDocumentFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
-  const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'ROOT'>('ALL');
+  // null = Main View showing Folders Grid
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [fileToMove, setFileToMove] = useState<VaultFile | null>(null);
+
+  // Animated Floating Action Button (FAB) state
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const fabAnim = useRef(new Animated.Value(0)).current;
+
+  const toggleFab = () => {
+    const toValue = isFabOpen ? 0 : 1;
+    Animated.spring(fabAnim, {
+      toValue,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 40,
+    }).start();
+    setIsFabOpen(!isFabOpen);
+  };
+
+  const fabRotation = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '45deg'],
+  });
+
+  const menuScale = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 1],
+  });
+
+  const menuTranslateY = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [20, 0],
+  });
+
+  const backdropOpacity = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  // Hardware BackHandler effect
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedFolderId !== null) {
+        setSelectedFolderId(null);
+        return true;
+      }
+      return false;
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [selectedFolderId]);
 
   const docFolders = folders.filter((f) => f.category === 'docs');
   const allDocFiles = files.filter((f) => f.type === 'document');
@@ -48,7 +150,7 @@ export const DocumentsVault: React.FC = () => {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const targetFolderId =
-          selectedFolderId !== 'ALL' && selectedFolderId !== 'ROOT'
+          selectedFolderId && selectedFolderId !== 'ALL' && selectedFolderId !== 'ROOT'
             ? selectedFolderId
             : undefined;
 
@@ -168,88 +270,168 @@ export const DocumentsVault: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Clean Header */}
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity
+          disabled={selectedFolderId === null}
+          onPress={() => setSelectedFolderId(null)}
+          style={{ flex: 1 }}
+          activeOpacity={selectedFolderId !== null ? 0.7 : 1}
+        >
           <Text style={styles.sectionTitle}>
-            {activeFolder ? `Folder: ${activeFolder.name}` : 'Secret Documents'}
+            {selectedFolderId === null
+              ? 'Secret Documents'
+              : activeFolder
+                ? activeFolder.name
+                : 'All Documents'}
           </Text>
-          <Text style={styles.subtitle}>{filteredDocFiles.length} file(s) stored</Text>
-        </View>
-
-        <View style={styles.headerBtnRow}>
-          <TouchableOpacity style={styles.newFolderBtn} onPress={() => setShowCreateFolder(true)}>
-            <Ionicons name="folder-open-outline" size={18} color="#E3E3E3" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.importFolderHeaderBtn} onPress={handleImportFolder}>
-            <Ionicons name="folder-open" size={16} color="#38bdf8" />
-            <Text style={styles.importFolderHeaderBtnText}>Import Folder</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.importBtn} onPress={handlePickDocument}>
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text style={styles.importBtnText}>Add Document</Text>
-          </TouchableOpacity>
-        </View>
+          <Text style={styles.subtitle}>
+            {selectedFolderId === null
+              ? `${docFolders.length + 1} folder(s)`
+              : `${filteredDocFiles.length} file(s)`}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Folder Chips Selector */}
-      <View style={styles.folderBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderChips}>
-          <TouchableOpacity
-            style={[styles.chip, selectedFolderId === 'ALL' && styles.chipActive]}
-            onPress={() => setSelectedFolderId('ALL')}
-          >
-            <Text style={[styles.chipText, selectedFolderId === 'ALL' && styles.chipTextActive]}>
-              All ({allDocFiles.length})
-            </Text>
-          </TouchableOpacity>
+      {/* Main View: Folders First OR Inside Folder Files */}
+      {selectedFolderId === null ? (
+        /* MAIN SCREEN: FOLDERS GRID VIEW WITH PREVIEWS */
+        <ScrollView contentContainerStyle={styles.foldersGridContainer} showsVerticalScrollIndicator={false}>
 
-          {docFolders.map((f) => {
-            const count = allDocFiles.filter((item) => item.folderId === f.id).length;
-            const isActive = selectedFolderId === f.id;
-            return (
-              <TouchableOpacity
-                key={f.id}
-                style={[
-                  styles.chip,
-                  isActive && styles.chipActive,
-                  { borderColor: f.color || '#334155' },
-                ]}
-                onPress={() => setSelectedFolderId(f.id)}
-                onLongPress={() => handleDeleteFolder(f)}
-              >
-                <Ionicons name="folder-sharp" size={14} color={f.color || '#38bdf8'} />
-                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                  {f.name} ({count})
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+          <View style={styles.foldersGrid}>
+            {/* Master Card: All Secret Documents */}
+            <DocFolderCard
+              name="All Secret Documents"
+              count={allDocFiles.length}
+              color="#38bdf8"
+              files={allDocFiles}
+              isAll
+              onPress={() => setSelectedFolderId('ALL')}
+            />
 
-      {/* List or Empty State */}
-      {filteredDocFiles.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconCircle}>
-            <Ionicons name="folder-open-outline" size={48} color="#A1A1AA" />
+            {/* Custom Secret Folders */}
+            {docFolders.map((folder) => {
+              const folderFiles = allDocFiles.filter((f) => f.folderId === folder.id);
+              return (
+                <DocFolderCard
+                  key={folder.id}
+                  name={folder.name}
+                  count={folderFiles.length}
+                  color={folder.color}
+                  files={folderFiles}
+                  onPress={() => setSelectedFolderId(folder.id)}
+                  onDelete={() => handleDeleteFolder(folder)}
+                />
+              );
+            })}
           </View>
-          <Text style={styles.emptyTitle}>No Documents Stored</Text>
-          <Text style={styles.emptySubtitle}>
-            Securely import PDFs, Word docs, spreadsheets, or text files into this folder.
-          </Text>
-          <TouchableOpacity style={styles.emptyBtn} onPress={handlePickDocument}>
-            <Text style={styles.emptyBtnText}>Import Document</Text>
-          </TouchableOpacity>
-        </View>
+
+          {docFolders.length === 0 && (
+            <View style={styles.emptyFoldersTipBox}>
+              <Ionicons name="folder-open-outline" size={44} color="#38bdf8" />
+              <Text style={styles.emptyFoldersTipTitle}>No Document Folders Yet</Text>
+              <Text style={styles.emptyFoldersTipSub}>
+                Tap the &quot;+&quot; button in the bottom right corner to create or import document folders.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       ) : (
-        <FlatList
-          data={filteredDocFiles}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContainer}
+        /* INSIDE FOLDER: FILES LIST VIEW */
+        filteredDocFiles.length === 0 ? (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="folder-open-outline" size={48} color="#A1A1AA" />
+            </View>
+            <Text style={styles.emptyTitle}>No Documents Stored</Text>
+            <Text style={styles.emptySubtitle}>
+              Securely import PDFs, Word docs, spreadsheets, or text files into this folder.
+            </Text>
+            <TouchableOpacity style={styles.emptyBtn} onPress={handlePickDocument}>
+              <Text style={styles.emptyBtnText}>Import Document</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredDocFiles}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        )
+      )}
+
+      {/* Dim Backdrop when FAB menu is open */}
+      {isFabOpen && (
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.fabBackdrop}
+          onPress={toggleFab}
         />
       )}
+
+      {/* Animated Sub-Actions FAB Menu */}
+      <Animated.View
+        pointerEvents={isFabOpen ? 'auto' : 'none'}
+        style={[
+          styles.fabMenuContainer,
+          {
+            opacity: backdropOpacity,
+            transform: [{ scale: menuScale }, { translateY: menuTranslateY }],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.fabSubBtn}
+          onPress={() => {
+            toggleFab();
+            handlePickDocument();
+          }}
+        >
+          <Text style={styles.fabSubLabel}>Import Document</Text>
+          <View style={[styles.fabSubIconCircle, { backgroundColor: '#38bdf8' }]}>
+            <Ionicons name="document-text" size={20} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.fabSubBtn}
+          onPress={() => {
+            toggleFab();
+            handleImportFolder();
+          }}
+        >
+          <Text style={styles.fabSubLabel}>Import Folder</Text>
+          <View style={[styles.fabSubIconCircle, { backgroundColor: '#a855f7' }]}>
+            <Ionicons name="folder-open" size={20} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.fabSubBtn}
+          onPress={() => {
+            toggleFab();
+            setShowCreateFolder(true);
+          }}
+        >
+          <Text style={styles.fabSubLabel}>New Folder</Text>
+          <View style={[styles.fabSubIconCircle, { backgroundColor: '#22c55e' }]}>
+            <Ionicons name="folder-outline" size={20} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Primary Animated Floating Action Button (FAB) */}
+      <TouchableOpacity
+        style={styles.fabMainBtn}
+        onPress={toggleFab}
+        activeOpacity={0.85}
+      >
+        <Animated.View style={{ transform: [{ rotate: fabRotation }] }}>
+          <Ionicons name="add" size={32} color="#FFFFFF" />
+        </Animated.View>
+      </TouchableOpacity>
 
       {/* Create Folder Modal */}
       <CreateFolderModal
@@ -293,47 +475,187 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
     marginTop: 2,
   },
-  headerBtnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  newFolderBtn: {
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: '#262626',
-    borderWidth: 1,
-    borderColor: '#383838',
-  },
-  importBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  importBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  importFolderHeaderBtn: {
+  backToFoldersBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0f172a',
-    borderColor: '#0284c7',
-    borderWidth: 1,
+    marginRight: 10,
+    backgroundColor: '#1e293b',
     paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  importFolderHeaderBtnText: {
+  backToFoldersText: {
     color: '#38bdf8',
+    fontSize: 13,
     fontWeight: '600',
+  },
+  foldersGridContainer: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  foldersGridHeader: {
+    marginBottom: 14,
+  },
+  foldersGridSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  foldersGridSectionSub: {
+    color: '#94a3b8',
     fontSize: 12,
+    marginTop: 2,
+  },
+  foldersGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  folderCard: {
+    width: (width - 32 - 12) / 2,
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  folderCardPreviewBox: {
+    width: '100%',
+    height: 110,
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
+  docMiniChipStack: {
+    width: '100%',
+    gap: 4,
+    marginTop: 4,
+  },
+  docMiniChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  docMiniChipText: {
+    color: '#94a3b8',
+    fontSize: 9,
+    fontWeight: '500',
+    flex: 1,
+  },
+  emptyFolderIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  folderCardInfo: {
+    marginTop: 8,
+  },
+  folderCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  folderCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  folderCardCount: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  emptyFoldersTipBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  emptyFoldersTipTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  emptyFoldersTipSub: {
+    color: '#94A3B8',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  fabBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    zIndex: 40,
+  },
+  fabMainBtn: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2563eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    zIndex: 50,
+  },
+  fabMenuContainer: {
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    alignItems: 'flex-end',
+    gap: 12,
+    zIndex: 50,
+  },
+  fabSubBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fabSubLabel: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '600',
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    elevation: 4,
+  },
+  fabSubIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   folderBar: {
     backgroundColor: '#181818',

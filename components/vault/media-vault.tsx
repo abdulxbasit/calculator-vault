@@ -1,23 +1,25 @@
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import * as ImagePicker from 'expo-image-picker';
+import * as Sharing from 'expo-sharing';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import React, { useRef, useState, useEffect } from 'react';
 import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
+  Alert,
+  Animated,
+  BackHandler,
+  Dimensions,
   FlatList,
   Image,
   Modal,
-  Alert,
-  Dimensions,
-  ScrollView,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import * as Sharing from 'expo-sharing';
-import { BlurView } from 'expo-blur';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { useVault } from '../../context/vault-context';
 import { VaultFile, VaultFolder } from '../../services/vault-storage';
 import { CreateFolderModal } from './create-folder-modal';
@@ -45,14 +47,111 @@ const { width, height } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
 const ITEM_SIZE = (width - 32 - 16) / COLUMN_COUNT;
 
+const MediaFolderCard: React.FC<{
+  name: string;
+  count: number;
+  color?: string;
+  files: VaultFile[];
+  onPress: () => void;
+  onDelete?: () => void;
+  isAll?: boolean;
+}> = ({ name, count, color, files, onPress, onDelete, isAll }) => {
+  const previewFiles = files.slice(0, 4);
+
+  return (
+    <TouchableOpacity style={styles.folderCard} onPress={onPress} activeOpacity={0.85}>
+      <View style={styles.folderCardPreviewBox}>
+        {previewFiles.length > 0 ? (
+          <View style={styles.folderGridPreview}>
+            {previewFiles.map((file, idx) => (
+              <Image key={file.id || idx} source={{ uri: file.uri }} style={styles.folderGridThumb} />
+            ))}
+            {previewFiles.length < 4 &&
+              Array.from({ length: 4 - previewFiles.length }).map((_, i) => (
+                <View key={`placeholder_${i}`} style={styles.folderGridPlaceholder} />
+              ))}
+          </View>
+        ) : (
+          <View style={[styles.emptyFolderIconCircle, { backgroundColor: (color || '#38bdf8') + '15' }]}>
+            <Ionicons name="folder" size={36} color={color || '#38bdf8'} />
+          </View>
+        )}
+      </View>
+
+      <View style={styles.folderCardInfo}>
+        <View style={styles.folderCardTitleRow}>
+          <Text style={styles.folderCardTitle} numberOfLines={1}>
+            {name}
+          </Text>
+          {onDelete && !isAll && (
+            <TouchableOpacity onPress={onDelete} style={{ padding: 2 }}>
+              <Ionicons name="ellipsis-vertical" size={16} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text style={styles.folderCardCount}>{count} item(s)</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 export const MediaVault: React.FC = () => {
   const { files, folders, addMediaFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
-  const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'ROOT'>('ALL');
+  // null = Main View showing Folders Grid
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const flatListRef = React.useRef<FlatList>(null);
+  const flatListRef = useRef<FlatList>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [fileToMove, setFileToMove] = useState<VaultFile | null>(null);
+
+  // Animated Floating Action Button (FAB) state
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const fabAnim = useRef(new Animated.Value(0)).current;
+
+  const toggleFab = () => {
+    const toValue = isFabOpen ? 0 : 1;
+    Animated.spring(fabAnim, {
+      toValue,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 40,
+    }).start();
+    setIsFabOpen(!isFabOpen);
+  };
+
+  const fabRotation = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '45deg'],
+  });
+
+  const menuScale = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 1],
+  });
+
+  const menuTranslateY = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [20, 0],
+  });
+
+  const backdropOpacity = fabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  // Hardware BackHandler effect
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedFolderId !== null) {
+        setSelectedFolderId(null);
+        return true;
+      }
+      return false;
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [selectedFolderId]);
 
   const handleImportFolder = async () => {
     await importFolderFromFileManager('media');
@@ -99,7 +198,7 @@ export const MediaVault: React.FC = () => {
 
       if (!result.canceled && result.assets.length > 0) {
         const targetFolderId =
-          selectedFolderId !== 'ALL' && selectedFolderId !== 'ROOT'
+          selectedFolderId && selectedFolderId !== 'ALL' && selectedFolderId !== 'ROOT'
             ? selectedFolderId
             : undefined;
 
@@ -198,90 +297,168 @@ export const MediaVault: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Clean Header */}
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity
+          disabled={selectedFolderId === null}
+          onPress={() => setSelectedFolderId(null)}
+          style={{ flex: 1 }}
+          activeOpacity={selectedFolderId !== null ? 0.7 : 1}
+        >
           <Text style={styles.sectionTitle}>
-            {activeFolder ? `Folder: ${activeFolder.name}` : 'Photos & Videos'}
+            {selectedFolderId === null
+              ? 'Photos & Videos'
+              : activeFolder
+                ? activeFolder.name
+                : 'All Media'}
           </Text>
-          <Text style={styles.subtitle}>{filteredMediaFiles.length} item(s)</Text>
-        </View>
-
-        <View style={styles.headerBtnRow}>
-          <TouchableOpacity style={styles.newFolderBtn} onPress={() => setShowCreateFolder(true)}>
-            <Ionicons name="folder-open-outline" size={18} color="#E3E3E3" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.importFolderHeaderBtn} onPress={handleImportFolder}>
-            <Ionicons name="folder-open" size={16} color="#38bdf8" />
-            <Text style={styles.importFolderHeaderBtnText}>Folder</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.importBtn} onPress={handlePickMedia}>
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text style={styles.importBtnText}>Gallery</Text>
-          </TouchableOpacity>
-        </View>
+          <Text style={styles.subtitle}>
+            {selectedFolderId === null
+              ? `${mediaFolders.length + 1} folder(s)`
+              : `${filteredMediaFiles.length} item(s)`}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Folder Chips Selector */}
-      <View style={styles.folderBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderChips}>
-          <TouchableOpacity
-            style={[styles.chip, selectedFolderId === 'ALL' && styles.chipActive]}
-            onPress={() => setSelectedFolderId('ALL')}
-          >
-            <Text style={[styles.chipText, selectedFolderId === 'ALL' && styles.chipTextActive]}>
-              All ({allMediaFiles.length})
-            </Text>
-          </TouchableOpacity>
+      {/* Main View: Folders First OR Inside Folder Files */}
+      {selectedFolderId === null ? (
+        /* MAIN SCREEN: FOLDERS GRID VIEW WITH PREVIEWS */
+        <ScrollView contentContainerStyle={styles.foldersGridContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.foldersGrid}>
+            {/* Master Card: All Secret Photos & Videos */}
+            <MediaFolderCard
+              name="All Secret Media"
+              count={allMediaFiles.length}
+              color="#38bdf8"
+              files={allMediaFiles}
+              isAll
+              onPress={() => setSelectedFolderId('ALL')}
+            />
 
-          {mediaFolders.map((f) => {
-            const count = allMediaFiles.filter((item) => item.folderId === f.id).length;
-            const isActive = selectedFolderId === f.id;
-            return (
-              <TouchableOpacity
-                key={f.id}
-                style={[
-                  styles.chip,
-                  isActive && styles.chipActive,
-                  { borderColor: f.color || '#334155' },
-                ]}
-                onPress={() => setSelectedFolderId(f.id)}
-                onLongPress={() => handleDeleteFolder(f)}
-              >
-                <Ionicons name="folder-sharp" size={14} color={f.color || '#38bdf8'} />
-                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                  {f.name} ({count})
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Grid or Empty State */}
-      {filteredMediaFiles.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconCircle}>
-            <Ionicons name="images-outline" size={48} color="#A1A1AA" />
+            {/* Custom Secret Folders */}
+            {mediaFolders.map((folder) => {
+              const folderFiles = allMediaFiles.filter((f) => f.folderId === folder.id);
+              return (
+                <MediaFolderCard
+                  key={folder.id}
+                  name={folder.name}
+                  count={folderFiles.length}
+                  color={folder.color}
+                  files={folderFiles}
+                  onPress={() => setSelectedFolderId(folder.id)}
+                  onDelete={() => handleDeleteFolder(folder)}
+                />
+              );
+            })}
           </View>
-          <Text style={styles.emptyTitle}>No Media Here</Text>
-          <Text style={styles.emptySubtitle}>
-            Import secret photos & videos from your gallery to keep them safe in this folder.
-          </Text>
-          <TouchableOpacity style={styles.emptyBtn} onPress={handlePickMedia}>
-            <Text style={styles.emptyBtnText}>Import Now</Text>
-          </TouchableOpacity>
-        </View>
+
+          {mediaFolders.length === 0 && (
+            <View style={styles.emptyFoldersTipBox}>
+              <Ionicons name="folder-open-outline" size={44} color="#38bdf8" />
+              <Text style={styles.emptyFoldersTipTitle}>No Secret Folders Yet</Text>
+              <Text style={styles.emptyFoldersTipSub}>
+                Tap the &quot;+&quot; button in the bottom right corner to create or import secret folders.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       ) : (
-        <FlatList
-          data={filteredMediaFiles}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          numColumns={COLUMN_COUNT}
-          contentContainerStyle={styles.gridContainer}
-          showsVerticalScrollIndicator={false}
+        /* INSIDE FOLDER: FILES GRID VIEW */
+        filteredMediaFiles.length === 0 ? (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="images-outline" size={48} color="#A1A1AA" />
+            </View>
+            <Text style={styles.emptyTitle}>No Media Here</Text>
+            <Text style={styles.emptySubtitle}>
+              Import secret photos & videos from your gallery to keep them safe in this folder.
+            </Text>
+            <TouchableOpacity style={styles.emptyBtn} onPress={handlePickMedia}>
+              <Text style={styles.emptyBtnText}>Import Now</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredMediaFiles}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            numColumns={COLUMN_COUNT}
+            contentContainerStyle={styles.gridContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        )
+      )}
+
+      {/* Dim Backdrop when FAB menu is open */}
+      {isFabOpen && (
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.fabBackdrop}
+          onPress={toggleFab}
         />
       )}
+
+      {/* Animated Sub-Actions FAB Menu */}
+      <Animated.View
+        pointerEvents={isFabOpen ? 'auto' : 'none'}
+        style={[
+          styles.fabMenuContainer,
+          {
+            opacity: backdropOpacity,
+            transform: [{ scale: menuScale }, { translateY: menuTranslateY }],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.fabSubBtn}
+          onPress={() => {
+            toggleFab();
+            handlePickMedia();
+          }}
+        >
+          <Text style={styles.fabSubLabel}>Import Media</Text>
+          <View style={[styles.fabSubIconCircle, { backgroundColor: '#38bdf8' }]}>
+            <Ionicons name="images" size={20} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.fabSubBtn}
+          onPress={() => {
+            toggleFab();
+            handleImportFolder();
+          }}
+        >
+          <Text style={styles.fabSubLabel}>Import Folder</Text>
+          <View style={[styles.fabSubIconCircle, { backgroundColor: '#a855f7' }]}>
+            <Ionicons name="folder-open" size={20} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.fabSubBtn}
+          onPress={() => {
+            toggleFab();
+            setShowCreateFolder(true);
+          }}
+        >
+          <Text style={styles.fabSubLabel}>New Folder</Text>
+          <View style={[styles.fabSubIconCircle, { backgroundColor: '#22c55e' }]}>
+            <Ionicons name="folder-outline" size={20} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Primary Animated Floating Action Button (FAB) */}
+      <TouchableOpacity
+        style={styles.fabMainBtn}
+        onPress={toggleFab}
+        activeOpacity={0.85}
+      >
+        <Animated.View style={{ transform: [{ rotate: fabRotation }] }}>
+          <Ionicons name="add" size={32} color="#FFFFFF" />
+        </Animated.View>
+      </TouchableOpacity>
 
       {/* Media Fullscreen Interactive Zoom Preview Modal with Left/Right Swipe */}
       {selectedIndex !== null && selectedFile && (
@@ -421,47 +598,185 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
     marginTop: 2,
   },
-  headerBtnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  newFolderBtn: {
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: '#262626',
-    borderWidth: 1,
-    borderColor: '#383838',
-  },
-  importBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  importBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  importFolderHeaderBtn: {
+  backToFoldersBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0f172a',
-    borderColor: '#0284c7',
-    borderWidth: 1,
+    marginRight: 10,
+    backgroundColor: '#1e293b',
     paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  importFolderHeaderBtnText: {
+  backToFoldersText: {
     color: '#38bdf8',
+    fontSize: 13,
     fontWeight: '600',
+  },
+  foldersGridContainer: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  foldersGridHeader: {
+    marginBottom: 14,
+  },
+  foldersGridSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  foldersGridSectionSub: {
+    color: '#94a3b8',
     fontSize: 12,
+    marginTop: 2,
+  },
+  foldersGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  folderCard: {
+    width: (width - 32 - 12) / 2,
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  folderCardPreviewBox: {
+    width: '100%',
+    height: 110,
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  folderGridPreview: {
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  folderGridThumb: {
+    width: '50%',
+    height: '50%',
+    borderWidth: 0.5,
+    borderColor: '#1e293b',
+  },
+  folderGridPlaceholder: {
+    width: '50%',
+    height: '50%',
+    backgroundColor: '#1e293b',
+    borderWidth: 0.5,
+    borderColor: '#0f172a',
+  },
+  emptyFolderIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  folderCardInfo: {
+    marginTop: 8,
+  },
+  folderCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  folderCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  folderCardCount: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  emptyFoldersTipBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  emptyFoldersTipTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  emptyFoldersTipSub: {
+    color: '#94A3B8',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  fabBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    zIndex: 40,
+  },
+  fabMainBtn: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2563eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    zIndex: 50,
+  },
+  fabMenuContainer: {
+    position: 'absolute',
+    bottom: 90,
+    right: 20,
+    alignItems: 'flex-end',
+    gap: 12,
+    zIndex: 50,
+  },
+  fabSubBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fabSubLabel: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '600',
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    elevation: 4,
+  },
+  fabSubIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   folderBar: {
     backgroundColor: '#181818',
