@@ -170,10 +170,10 @@ export const DocumentsVault: React.FC = () => {
 
         <View style={styles.headerBtnRow}>
           <TouchableOpacity style={styles.newFolderBtn} onPress={() => setShowCreateFolder(true)}>
-            <Ionicons name="folder-open-outline" size={18} color="#38bdf8" />
+            <Ionicons name="folder-open-outline" size={18} color="#E3E3E3" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.importBtn} onPress={handlePickDocument}>
-            <Ionicons name="add" size={20} color="#ffffff" />
+            <Ionicons name="add" size={20} color="#FFFFFF" />
             <Text style={styles.importBtnText}>Add Document</Text>
           </TouchableOpacity>
         </View>
@@ -219,7 +219,7 @@ export const DocumentsVault: React.FC = () => {
       {filteredDocFiles.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconCircle}>
-            <Ionicons name="folder-open-outline" size={48} color="#64748b" />
+            <Ionicons name="folder-open-outline" size={48} color="#A1A1AA" />
           </View>
           <Text style={styles.emptyTitle}>No Documents Stored</Text>
           <Text style={styles.emptySubtitle}>
@@ -259,7 +259,7 @@ export const DocumentsVault: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#161616',
   },
   header: {
     flexDirection: 'row',
@@ -268,16 +268,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#282828',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
   },
   subtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#A1A1AA',
     marginTop: 2,
   },
   headerBtnRow: {
@@ -288,29 +288,29 @@ const styles = StyleSheet.create({
   newFolderBtn: {
     padding: 8,
     borderRadius: 12,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#262626',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   importBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
   },
   importBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
   },
   folderBar: {
-    backgroundColor: '#090d16',
+    backgroundColor: '#181818',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#282828',
   },
   folderChips: {
     paddingHorizontal: 16,
@@ -320,24 +320,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#3b82f6',
+    backgroundColor: '#353535',
+    borderColor: '#71717A',
   },
   chipText: {
-    color: '#94a3b8',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '500',
   },
   chipTextActive: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
   listContainer: {
@@ -347,11 +347,11 @@ const styles = StyleSheet.create({
   docCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   iconCircle: {
     width: 44,
@@ -367,12 +367,12 @@ const styles = StyleSheet.create({
   docName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#f8fafc',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   docSub: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#A1A1AA',
   },
   actionRow: {
     flexDirection: 'row',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -399,24 +399,24 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#cbd5e1',
+    color: '#FFFFFF',
     marginBottom: 6,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#A1A1AA',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 18,
   },
   emptyBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
   },
   emptyBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
 });

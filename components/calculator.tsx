@@ -833,11 +833,11 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   btnEqual: {
-    backgroundColor: '#FFFFFF', // Pure White
+    backgroundColor: '#2563EB', // Blue accent
   },
   btnEqualText: {
     fontSize: 34,
-    color: '#141414',
+    color: '#FFFFFF',
     fontWeight: '400',
   },
 

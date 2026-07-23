@@ -91,7 +91,7 @@ export const NotesVault: React.FC = () => {
         </View>
 
         <TouchableOpacity style={styles.importBtn} onPress={openNewNoteModal}>
-          <Ionicons name="create-outline" size={18} color="#ffffff" />
+          <Ionicons name="create-outline" size={18} color="#FFFFFF" />
           <Text style={styles.importBtnText}>New Note</Text>
         </TouchableOpacity>
       </View>
@@ -99,7 +99,7 @@ export const NotesVault: React.FC = () => {
       {notes.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconCircle}>
-            <Ionicons name="journal-outline" size={48} color="#64748b" />
+            <Ionicons name="journal-outline" size={48} color="#A1A1AA" />
           </View>
           <Text style={styles.emptyTitle}>No Secret Notes</Text>
           <Text style={styles.emptySubtitle}>
@@ -171,7 +171,7 @@ export const NotesVault: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#161616',
   },
   header: {
     flexDirection: 'row',
@@ -180,29 +180,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#282828',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
   },
   subtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#A1A1AA',
     marginTop: 2,
   },
   importBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
   },
   importBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
   },
@@ -211,11 +211,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   noteCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   noteHeader: {
     flexDirection: 'row',
@@ -226,17 +226,17 @@ const styles = StyleSheet.create({
   noteTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
     flex: 1,
     marginRight: 8,
   },
   noteDate: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#A1A1AA',
   },
   notePreview: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: '#A1A1AA',
     lineHeight: 20,
   },
   emptyState: {
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -257,33 +257,33 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#cbd5e1',
+    color: '#FFFFFF',
     marginBottom: 6,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#A1A1AA',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 18,
   },
   emptyBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
   },
   emptyBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: '#121212',
   },
   editorContainer: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#161616',
     paddingTop: 48,
     paddingHorizontal: 20,
   },
@@ -294,32 +294,32 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerCancelText: {
-    color: '#94a3b8',
+    color: '#A1A1AA',
     fontSize: 16,
   },
   editorHeaderTitle: {
-    color: '#f8fafc',
+    color: '#FFFFFF',
     fontSize: 17,
     fontWeight: 'bold',
   },
   headerSaveText: {
-    color: '#38bdf8',
+    color: '#2563EB',
     fontSize: 16,
     fontWeight: 'bold',
   },
   titleInput: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#282828',
     marginBottom: 16,
   },
   contentInput: {
     flex: 1,
     fontSize: 16,
-    color: '#cbd5e1',
+    color: '#E3E3E3',
     lineHeight: 24,
   },
   deleteNoteBtn: {
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   deleteNoteBtnText: {
-    color: '#f87171',
+    color: '#F87171',
     fontWeight: '600',
     fontSize: 15,
   },

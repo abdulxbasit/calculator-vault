@@ -85,7 +85,7 @@ export const PasswordsVault: React.FC = () => {
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.badgeIcon}>
-            <Ionicons name="key" size={20} color="#38bdf8" />
+            <Ionicons name="key" size={20} color="#FFFFFF" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.cardTitle}>{item.title}</Text>
@@ -94,7 +94,7 @@ export const PasswordsVault: React.FC = () => {
             ) : null}
           </View>
           <TouchableOpacity onPress={() => openEditModal(item)} style={styles.editBtn}>
-            <Ionicons name="create-outline" size={20} color="#94a3b8" />
+            <Ionicons name="create-outline" size={20} color="#A1A1AA" />
           </TouchableOpacity>
         </View>
 
@@ -109,7 +109,7 @@ export const PasswordsVault: React.FC = () => {
             <Ionicons
               name={isPassVisible ? 'eye-off-outline' : 'eye-outline'}
               size={20}
-              color="#94a3b8"
+              color="#A1A1AA"
             />
           </TouchableOpacity>
         </View>
@@ -126,7 +126,7 @@ export const PasswordsVault: React.FC = () => {
         </View>
 
         <TouchableOpacity style={styles.importBtn} onPress={openNewModal}>
-          <Ionicons name="add" size={20} color="#ffffff" />
+          <Ionicons name="add" size={20} color="#FFFFFF" />
           <Text style={styles.importBtnText}>Add Login</Text>
         </TouchableOpacity>
       </View>
@@ -134,7 +134,7 @@ export const PasswordsVault: React.FC = () => {
       {passwords.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconCircle}>
-            <Ionicons name="key-outline" size={48} color="#64748b" />
+            <Ionicons name="key-outline" size={48} color="#A1A1AA" />
           </View>
           <Text style={styles.emptyTitle}>No Passwords Saved</Text>
           <Text style={styles.emptySubtitle}>
@@ -162,7 +162,7 @@ export const PasswordsVault: React.FC = () => {
                 {editingItem ? 'Edit Credential' : 'Add Credential'}
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#94a3b8" />
+                <Ionicons name="close" size={24} color="#A1A1AA" />
               </TouchableOpacity>
             </View>
 
@@ -248,7 +248,7 @@ export const PasswordsVault: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#161616',
   },
   header: {
     flexDirection: 'row',
@@ -257,29 +257,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#282828',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
   },
   subtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#A1A1AA',
     marginTop: 2,
   },
   importBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
   },
   importBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
   },
@@ -288,11 +288,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#0284c720',
+    backgroundColor: '#353535',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -311,11 +311,11 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
   },
   cardUsername: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#A1A1AA',
     marginTop: 2,
   },
   editBtn: {
@@ -325,16 +325,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#181818',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   passwordText: {
     fontSize: 15,
-    color: '#38bdf8',
+    color: '#FFFFFF',
     fontFamily: 'monospace',
     letterSpacing: 1,
   },
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -359,24 +359,24 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#cbd5e1',
+    color: '#FFFFFF',
     marginBottom: 6,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#A1A1AA',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 18,
   },
   emptyBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
   },
   emptyBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   modalOverlay: {
@@ -386,11 +386,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalContent: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   modalHeaderTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
   },
   inputGroup: {
     marginBottom: 12,
@@ -409,18 +409,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#cbd5e1',
+    color: '#A1A1AA',
     marginBottom: 4,
   },
   input: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#181818',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#f8fafc',
+    color: '#FFFFFF',
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   btnRow: {
     flexDirection: 'row',
@@ -434,19 +434,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteBtn: {
-    backgroundColor: '#ef444420',
+    backgroundColor: '#3A1E1E',
     borderWidth: 1,
-    borderColor: '#ef4444',
+    borderColor: '#EF4444',
   },
   deleteBtnText: {
-    color: '#f87171',
+    color: '#F87171',
     fontWeight: 'bold',
   },
   saveBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
   },
   saveBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
 });

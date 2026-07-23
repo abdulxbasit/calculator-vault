@@ -100,11 +100,11 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     borderRadius: 18,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   header: {
     flexDirection: 'row',
@@ -116,32 +116,32 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#181818',
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
     flex: 1,
   },
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#cbd5e1',
+    color: '#A1A1AA',
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#181818',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#f8fafc',
+    color: '#FFFFFF',
     fontSize: 15,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   colorRow: {
     flexDirection: 'row',
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   colorDotSelected: {
     borderWidth: 3,
-    borderColor: '#ffffff',
+    borderColor: '#FFFFFF',
   },
   btnRow: {
     flexDirection: 'row',
@@ -168,17 +168,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtn: {
-    backgroundColor: '#334155',
+    backgroundColor: '#353535',
   },
   cancelBtnText: {
-    color: '#cbd5e1',
+    color: '#A1A1AA',
     fontWeight: '600',
   },
   createBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
   },
   createBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
 });

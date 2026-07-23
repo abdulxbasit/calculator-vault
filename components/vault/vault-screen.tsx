@@ -72,7 +72,7 @@ export const VaultScreen: React.FC = () => {
           <Ionicons
             name={activeTab === 'media' ? 'images' : 'images-outline'}
             size={22}
-            color={activeTab === 'media' ? '#38bdf8' : '#64748b'}
+            color={activeTab === 'media' ? '#FFFFFF' : '#71717A'}
           />
           <Text style={[styles.tabLabel, activeTab === 'media' && styles.tabLabelActive]}>
             Media
@@ -86,7 +86,7 @@ export const VaultScreen: React.FC = () => {
           <Ionicons
             name={activeTab === 'docs' ? 'folder-open' : 'folder-open-outline'}
             size={22}
-            color={activeTab === 'docs' ? '#38bdf8' : '#64748b'}
+            color={activeTab === 'docs' ? '#FFFFFF' : '#71717A'}
           />
           <Text style={[styles.tabLabel, activeTab === 'docs' && styles.tabLabelActive]}>
             Docs
@@ -100,7 +100,7 @@ export const VaultScreen: React.FC = () => {
           <Ionicons
             name={activeTab === 'notes' ? 'journal' : 'journal-outline'}
             size={22}
-            color={activeTab === 'notes' ? '#38bdf8' : '#64748b'}
+            color={activeTab === 'notes' ? '#FFFFFF' : '#71717A'}
           />
           <Text style={[styles.tabLabel, activeTab === 'notes' && styles.tabLabelActive]}>
             Notes
@@ -114,7 +114,7 @@ export const VaultScreen: React.FC = () => {
           <Ionicons
             name={activeTab === 'passwords' ? 'key' : 'key-outline'}
             size={22}
-            color={activeTab === 'passwords' ? '#38bdf8' : '#64748b'}
+            color={activeTab === 'passwords' ? '#FFFFFF' : '#71717A'}
           />
           <Text style={[styles.tabLabel, activeTab === 'passwords' && styles.tabLabelActive]}>
             Logins
@@ -128,7 +128,7 @@ export const VaultScreen: React.FC = () => {
           <Ionicons
             name={activeTab === 'settings' ? 'settings' : 'settings-outline'}
             size={22}
-            color={activeTab === 'settings' ? '#38bdf8' : '#64748b'}
+            color={activeTab === 'settings' ? '#FFFFFF' : '#71717A'}
           />
           <Text style={[styles.tabLabel, activeTab === 'settings' && styles.tabLabelActive]}>
             Settings
@@ -142,7 +142,7 @@ export const VaultScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090d16',
+    backgroundColor: '#161616',
   },
   navHeader: {
     flexDirection: 'row',
@@ -150,9 +150,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#181818',
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#282828',
   },
   brandRow: {
     flexDirection: 'row',
@@ -163,34 +163,34 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#052e16',
+    backgroundColor: '#1E291E',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#15803d',
+    borderColor: '#22C55E',
   },
   navTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
   },
   navSub: {
     fontSize: 11,
-    color: '#64748b',
+    color: '#A1A1AA',
   },
   lockBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#450a0a',
+    backgroundColor: '#2A1818',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#991b1b',
+    borderColor: '#7F1D1D',
   },
   lockBtnText: {
-    color: '#f87171',
+    color: '#F87171',
     fontWeight: 'bold',
     fontSize: 12,
   },
@@ -199,27 +199,30 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#181818',
     paddingVertical: 8,
+    paddingHorizontal: 8,
     borderTopWidth: 1,
-    borderTopColor: '#1e293b',
+    borderTopColor: '#282828',
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: 20,
     gap: 2,
   },
   tabItemActive: {
-    transform: [{ scale: 1.05 }],
+    backgroundColor: '#353535',
   },
   tabLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: '#71717A',
     fontWeight: '500',
   },
   tabLabelActive: {
-    color: '#38bdf8',
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
 });

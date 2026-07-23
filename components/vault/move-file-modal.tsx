@@ -94,12 +94,12 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     borderRadius: 18,
     padding: 20,
     maxHeight: '70%',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   header: {
     flexDirection: 'row',
@@ -110,11 +110,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
   },
   fileName: {
     fontSize: 13,
-    color: '#38bdf8',
+    color: '#A1A1AA',
     marginBottom: 16,
   },
   list: {
@@ -124,20 +124,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#181818',
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   folderOptionSelected: {
-    borderColor: '#38bdf8',
-    backgroundColor: '#0f172a',
+    borderColor: '#71717A',
+    backgroundColor: '#353535',
   },
   folderOptionName: {
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#f8fafc',
+    color: '#FFFFFF',
   },
 });

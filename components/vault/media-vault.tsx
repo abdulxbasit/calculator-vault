@@ -181,10 +181,10 @@ export const MediaVault: React.FC = () => {
 
         <View style={styles.headerBtnRow}>
           <TouchableOpacity style={styles.newFolderBtn} onPress={() => setShowCreateFolder(true)}>
-            <Ionicons name="folder-open-outline" size={18} color="#38bdf8" />
+            <Ionicons name="folder-open-outline" size={18} color="#E3E3E3" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.importBtn} onPress={handlePickMedia}>
-            <Ionicons name="add" size={20} color="#ffffff" />
+            <Ionicons name="add" size={20} color="#FFFFFF" />
             <Text style={styles.importBtnText}>Import</Text>
           </TouchableOpacity>
         </View>
@@ -230,7 +230,7 @@ export const MediaVault: React.FC = () => {
       {filteredMediaFiles.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconCircle}>
-            <Ionicons name="images-outline" size={48} color="#64748b" />
+            <Ionicons name="images-outline" size={48} color="#A1A1AA" />
           </View>
           <Text style={styles.emptyTitle}>No Media Here</Text>
           <Text style={styles.emptySubtitle}>
@@ -353,7 +353,7 @@ export const MediaVault: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#161616',
   },
   header: {
     flexDirection: 'row',
@@ -362,16 +362,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#282828',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f8fafc',
+    color: '#FFFFFF',
   },
   subtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#A1A1AA',
     marginTop: 2,
   },
   headerBtnRow: {
@@ -382,29 +382,29 @@ const styles = StyleSheet.create({
   newFolderBtn: {
     padding: 8,
     borderRadius: 12,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#262626',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   importBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
   },
   importBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
   },
   folderBar: {
-    backgroundColor: '#090d16',
+    backgroundColor: '#181818',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: '#282828',
   },
   folderChips: {
     paddingHorizontal: 16,
@@ -414,24 +414,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#383838',
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#3b82f6',
+    backgroundColor: '#353535',
+    borderColor: '#71717A',
   },
   chipText: {
-    color: '#94a3b8',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '500',
   },
   chipTextActive: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
   gridContainer: {
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     position: 'relative',
   },
   thumbnail: {
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -476,29 +476,29 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#cbd5e1',
+    color: '#FFFFFF',
     marginBottom: 6,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#A1A1AA',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 18,
   },
   emptyBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
   },
   emptyBtnText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: '#121212',
   },
   previewHeader: {
     flexDirection: 'row',
@@ -507,10 +507,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 16,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#181818',
   },
   previewTitle: {
-    color: '#f8fafc',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
     flex: 1,
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#262626',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
@@ -530,13 +530,13 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   zoomResetBadge: {
-    backgroundColor: '#334155',
+    backgroundColor: '#383838',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
   },
   zoomResetText: {
-    color: '#38bdf8',
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -562,9 +562,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 16,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#181818',
     borderTopWidth: 1,
-    borderTopColor: '#1e293b',
+    borderTopColor: '#282828',
   },
   actionBtn: {
     flexDirection: 'row',
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   actionText: {
-    color: '#38bdf8',
+    color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
   },
