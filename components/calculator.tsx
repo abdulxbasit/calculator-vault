@@ -4,7 +4,6 @@ import {
   Text,
   View,
   TouchableOpacity,
-  Alert,
   Modal,
   TextInput,
   ScrollView,
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useVault } from '../context/vault-context';
+import { useAlert } from '../context/alert-context';
 import { PinSetupModal } from './vault/pin-setup-modal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -27,6 +27,7 @@ interface HistoryItem {
 
 export const Calculator: React.FC = () => {
   const { hasPin, unlockVault, securityQuestion, resetPinWithSecurityAnswer } = useVault();
+  const { showAlert } = useAlert();
 
   const [display, setDisplay] = useState('0');
   const [expression, setExpression] = useState('');
@@ -290,17 +291,17 @@ export const Calculator: React.FC = () => {
   // Secret recovery reset handle
   const handleRecoveryReset = async () => {
     if (!recoveryAnswer.trim() || !newPinInput.trim()) {
-      Alert.alert('Incomplete', 'Please answer the security question and enter a new PIN.');
+      showAlert('Incomplete', 'Please answer the security question and enter a new PIN.');
       return;
     }
     const success = await resetPinWithSecurityAnswer(recoveryAnswer, newPinInput);
     if (success) {
-      Alert.alert('PIN Reset Success', 'Your secret vault PIN has been reset and unlocked.');
+      showAlert('PIN Reset Success', 'Your secret vault PIN has been reset and unlocked.');
       setShowRecoveryModal(false);
       setRecoveryAnswer('');
       setNewPinInput('');
     } else {
-      Alert.alert('Incorrect Answer', 'The security recovery answer is incorrect.');
+      showAlert('Incorrect Answer', 'The security recovery answer is incorrect.');
     }
   };
 

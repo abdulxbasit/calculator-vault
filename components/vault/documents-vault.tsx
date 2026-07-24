@@ -3,7 +3,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  Alert,
   Animated,
   Dimensions,
   FlatList,
@@ -15,6 +14,7 @@ import {
   BackHandler,
 } from 'react-native';
 import { useVault } from '../../context/vault-context';
+import { useAlert } from '../../context/alert-context';
 import { VaultFile, VaultFolder } from '../../services/vault-storage';
 import { CreateFolderModal } from './create-folder-modal';
 import { MoveFileModal } from './move-file-modal';
@@ -71,6 +71,7 @@ const DocFolderCard: React.FC<{
 
 export const DocumentsVault: React.FC = () => {
   const { files, folders, addDocumentFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
+  const { showAlert } = useAlert();
   // null = Main View showing Folders Grid
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
@@ -164,7 +165,7 @@ export const DocumentsVault: React.FC = () => {
       }
     } catch (err) {
       console.error('Document import error:', err);
-      Alert.alert('Import Failed', 'Could not pick document.');
+      showAlert('Import Failed', 'Could not pick document.');
     }
   };
 
@@ -172,7 +173,7 @@ export const DocumentsVault: React.FC = () => {
     try {
       const available = await Sharing.isAvailableAsync();
       if (!available) {
-        Alert.alert('Sharing Unavailable', 'Sharing is not supported on this device.');
+        showAlert('Sharing Unavailable', 'Sharing is not supported on this device.');
         return;
       }
       await Sharing.shareAsync(file.uri, {
@@ -185,7 +186,7 @@ export const DocumentsVault: React.FC = () => {
   };
 
   const handleDelete = (file: VaultFile) => {
-    Alert.alert('Delete Document', `Are you sure you want to delete "${file.name}"?`, [
+    showAlert('Delete Document', `Are you sure you want to delete "${file.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -196,18 +197,10 @@ export const DocumentsVault: React.FC = () => {
   };
 
   const handleDeleteFolder = (folder: VaultFolder) => {
-    Alert.alert(
+    showAlert(
       'Delete Folder',
       `Delete folder "${folder.name}"? Files inside will be moved to Root.`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Folder Only',
-          onPress: async () => {
-            await deleteFolder(folder.id, false);
-            setSelectedFolderId('ALL');
-          },
-        },
         {
           text: 'Delete Folder & Files',
           style: 'destructive',
@@ -216,6 +209,15 @@ export const DocumentsVault: React.FC = () => {
             setSelectedFolderId('ALL');
           },
         },
+        {
+          text: 'Delete Folder Only',
+          style: 'default',
+          onPress: async () => {
+            await deleteFolder(folder.id, false);
+            setSelectedFolderId('ALL');
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
       ]
     );
   };

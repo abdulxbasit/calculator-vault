@@ -6,13 +6,14 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVault } from '../../context/vault-context';
+import { useAlert } from '../../context/alert-context';
 
 export const VaultSettings: React.FC = () => {
+  const { showAlert } = useAlert();
   const {
     securityQuestion,
     setupPin,
@@ -30,21 +31,21 @@ export const VaultSettings: React.FC = () => {
 
   const handleChangePin = async () => {
     if (newPin.length < 4 || newPin.length > 8) {
-      Alert.alert('Invalid PIN', 'New PIN must be between 4 and 8 digits.');
+      showAlert('Invalid PIN', 'New PIN must be between 4 and 8 digits.');
       return;
     }
     if (!answer.trim()) {
-      Alert.alert('Security Recovery', 'Please fill out the security answer.');
+      showAlert('Security Recovery', 'Please fill out the security answer.');
       return;
     }
 
     const success = await setupPin(newPin, question, answer);
     if (success) {
-      Alert.alert('PIN Updated', 'Your secret vault PIN has been successfully updated.');
+      showAlert('PIN Updated', 'Your secret vault PIN has been successfully updated.');
       setNewPin('');
       setAnswer('');
     } else {
-      Alert.alert('Error', 'Failed to update PIN.');
+      showAlert('Error', 'Failed to update PIN.');
     }
   };
 

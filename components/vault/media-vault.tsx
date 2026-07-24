@@ -5,7 +5,6 @@ import * as Sharing from 'expo-sharing';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  Alert,
   Animated,
   BackHandler,
   Dimensions,
@@ -22,6 +21,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVault } from '../../context/vault-context';
+import { useAlert } from '../../context/alert-context';
 import { VaultFile, VaultFolder } from '../../services/vault-storage';
 import { CreateFolderModal } from './create-folder-modal';
 import { MoveFileModal } from './move-file-modal';
@@ -98,6 +98,7 @@ const MediaFolderCard: React.FC<{
 
 export const MediaVault: React.FC = () => {
   const { files, folders, addMediaFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
+  const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   // null = Main View showing Folders Grid
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -187,7 +188,7 @@ export const MediaVault: React.FC = () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission Denied', 'Permission to access media library is required.');
+        showAlert('Permission Denied', 'Permission to access media library is required.');
         return;
       }
 
@@ -219,7 +220,7 @@ export const MediaVault: React.FC = () => {
       }
     } catch (err) {
       console.error('Media import error:', err);
-      Alert.alert('Import Failed', 'Unable to import selected media file.');
+      showAlert('Import Failed', 'Unable to import selected media file.');
     }
   };
 
@@ -227,7 +228,7 @@ export const MediaVault: React.FC = () => {
     try {
       const available = await Sharing.isAvailableAsync();
       if (!available) {
-        Alert.alert('Sharing Unavailable', 'Sharing is not supported on this device.');
+        showAlert('Sharing Unavailable', 'Sharing is not supported on this device.');
         return;
       }
       await Sharing.shareAsync(file.uri, {
@@ -240,7 +241,7 @@ export const MediaVault: React.FC = () => {
   };
 
   const handleDelete = (file: VaultFile) => {
-    Alert.alert('Delete Media', `Are you sure you want to permanently delete "${file.name}"?`, [
+    showAlert('Delete Media', `Are you sure you want to permanently delete "${file.name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -258,18 +259,10 @@ export const MediaVault: React.FC = () => {
   };
 
   const handleDeleteFolder = (folder: VaultFolder) => {
-    Alert.alert(
+    showAlert(
       'Delete Folder',
       `Delete "${folder.name}"? Files inside will be moved to Root.`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Folder Only',
-          onPress: async () => {
-            await deleteFolder(folder.id, false);
-            setSelectedFolderId('ALL');
-          },
-        },
         {
           text: 'Delete Folder & Files',
           style: 'destructive',
@@ -278,6 +271,15 @@ export const MediaVault: React.FC = () => {
             setSelectedFolderId('ALL');
           },
         },
+        {
+          text: 'Delete Folder Only',
+          style: 'default',
+          onPress: async () => {
+            await deleteFolder(folder.id, false);
+            setSelectedFolderId('ALL');
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
       ]
     );
   };

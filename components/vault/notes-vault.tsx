@@ -7,14 +7,15 @@ import {
   FlatList,
   Modal,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVault } from '../../context/vault-context';
+import { useAlert } from '../../context/alert-context';
 import { SecretNote } from '../../services/vault-storage';
 
 export const NotesVault: React.FC = () => {
   const { notes, addNote, updateNote, deleteNote } = useVault();
+  const { showAlert } = useAlert();
   const [modalVisible, setModalVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<SecretNote | null>(null);
 
@@ -37,7 +38,7 @@ export const NotesVault: React.FC = () => {
 
   const handleSaveNote = async () => {
     if (!titleInput.trim()) {
-      Alert.alert('Validation Error', 'Note title cannot be empty.');
+      showAlert('Validation Error', 'Note title cannot be empty.');
       return;
     }
 
@@ -51,7 +52,7 @@ export const NotesVault: React.FC = () => {
   };
 
   const handleDeleteNote = (note: SecretNote) => {
-    Alert.alert('Delete Note', `Are you sure you want to delete "${note.title}"?`, [
+    showAlert('Delete Note', `Are you sure you want to delete "${note.title}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',

@@ -128,7 +128,7 @@ export async function saveSecurityRecovery(question: string, answer: string): Pr
 export async function getSecurityQuestion(): Promise<string | null> {
   try {
     return await SecureStore.getItemAsync(SECURITY_Q_KEY);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -139,7 +139,7 @@ export async function verifySecurityAnswer(answer: string): Promise<boolean> {
     if (!savedAHash) return false;
     const inputHash = await hashString(answer);
     return savedAHash === inputHash;
-  } catch (e) {
+  } catch {
     return false;
   }
 }

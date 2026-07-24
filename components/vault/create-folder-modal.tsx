@@ -6,10 +6,10 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVault } from '../../context/vault-context';
+import { useAlert } from '../../context/alert-context';
 
 interface CreateFolderModalProps {
   visible: boolean;
@@ -25,12 +25,13 @@ export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
   onClose,
 }) => {
   const { createFolder, importFolderFromFileManager } = useVault();
+  const { showAlert } = useAlert();
   const [folderName, setFolderName] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
 
   const handleCreate = async () => {
     if (!folderName.trim()) {
-      Alert.alert('Folder Name Required', 'Please enter a name for your folder.');
+      showAlert('Folder Name Required', 'Please enter a name for your folder.');
       return;
     }
 

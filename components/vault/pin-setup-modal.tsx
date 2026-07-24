@@ -6,13 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVault } from '../../context/vault-context';
+import { useAlert } from '../../context/alert-context';
 
 interface PinSetupModalProps {
   visible: boolean;
@@ -22,6 +22,7 @@ interface PinSetupModalProps {
 
 export const PinSetupModal: React.FC<PinSetupModalProps> = ({ visible, initialPin, onClose }) => {
   const { setupPin } = useVault();
+  const { showAlert } = useAlert();
   const [pin, setPin] = useState(initialPin);
   const [confirmPin, setConfirmPin] = useState('');
   const [question, setQuestion] = useState('What is your secret hint or first pet name?');
@@ -29,24 +30,24 @@ export const PinSetupModal: React.FC<PinSetupModalProps> = ({ visible, initialPi
 
   const handleSave = async () => {
     if (pin.length < 4 || pin.length > 8) {
-      Alert.alert('Invalid PIN', 'PIN must be between 4 and 8 digits.');
+      showAlert('Invalid PIN', 'PIN must be between 4 and 8 digits.');
       return;
     }
     if (pin !== confirmPin) {
-      Alert.alert('PIN Mismatch', 'The confirmed PIN does not match.');
+      showAlert('PIN Mismatch', 'The confirmed PIN does not match.');
       return;
     }
     if (!answer.trim()) {
-      Alert.alert('Security Recovery Required', 'Please provide an answer to your recovery security question.');
+      showAlert('Security Recovery Required', 'Please provide an answer to your recovery security question.');
       return;
     }
 
     const success = await setupPin(pin, question, answer);
     if (success) {
-      Alert.alert('Vault Passcode Set', 'Your secret folder is now configured! Enter your PIN and press "=" anytime to unlock.');
+      showAlert('Vault Passcode Set', 'Your secret folder is now configured! Enter your PIN and press "=" anytime to unlock.');
       onClose();
     } else {
-      Alert.alert('Error', 'Failed to save secret PIN.');
+      showAlert('Error', 'Failed to save secret PIN.');
     }
   };
 

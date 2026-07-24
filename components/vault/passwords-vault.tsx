@@ -7,14 +7,15 @@ import {
   FlatList,
   Modal,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVault } from '../../context/vault-context';
+import { useAlert } from '../../context/alert-context';
 import { PasswordRecord } from '../../services/vault-storage';
 
 export const PasswordsVault: React.FC = () => {
   const { passwords, addPassword, updatePassword, deletePassword } = useVault();
+  const { showAlert } = useAlert();
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<PasswordRecord | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<{ [id: string]: boolean }>({});
@@ -47,7 +48,7 @@ export const PasswordsVault: React.FC = () => {
 
   const handleSave = async () => {
     if (!title.trim() || !password.trim()) {
-      Alert.alert('Validation Error', 'Title and password are required.');
+      showAlert('Validation Error', 'Title and password are required.');
       return;
     }
 
@@ -61,7 +62,7 @@ export const PasswordsVault: React.FC = () => {
   };
 
   const handleDelete = (item: PasswordRecord) => {
-    Alert.alert('Delete Record', `Are you sure you want to delete "${item.title}"?`, [
+    showAlert('Delete Record', `Are you sure you want to delete "${item.title}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
