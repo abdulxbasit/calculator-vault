@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,11 +15,9 @@ import { NotesVault } from './notes-vault';
 import { PasswordsVault } from './passwords-vault';
 import { VaultSettings } from './vault-settings';
 
-type TabType = 'media' | 'docs' | 'notes' | 'passwords' | 'settings';
 
 export const VaultScreen: React.FC = () => {
-  const { lockVault } = useVault();
-  const [activeTab, setActiveTab] = useState<TabType>('media');
+  const { lockVault, activeTab, setActiveTab } = useVault();
 
   const renderActiveTab = () => {
     switch (activeTab) {

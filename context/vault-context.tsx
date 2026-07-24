@@ -66,6 +66,8 @@ interface VaultContextType {
   deletePassword: (id: string) => Promise<boolean>;
 
   // Refresh & Lock Control
+  activeTab: 'media' | 'docs' | 'notes' | 'passwords' | 'settings';
+  setActiveTab: (tab: 'media' | 'docs' | 'notes' | 'passwords' | 'settings') => void;
   reloadVaultData: () => Promise<void>;
   pauseAutoLock: () => void;
   resumeAutoLock: () => void;
@@ -81,6 +83,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [files, setFiles] = useState<VaultFile[]>([]);
   const [notes, setNotes] = useState<SecretNote[]>([]);
   const [passwords, setPasswords] = useState<PasswordRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<'media' | 'docs' | 'notes' | 'passwords' | 'settings'>('media');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const reloadVaultData = async () => {
@@ -130,7 +133,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
     resumeTimeoutRef.current = setTimeout(() => {
       autoLockPausedRef.current = false;
-    }, 1500);
+    }, 6000);
   };
 
   // Listen to AppState to auto-lock vault when app goes to background
@@ -785,6 +788,8 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         importFolderFromFileManager,
         exportFolderToFileManager,
         exportFilesBatchToFileManager,
+        activeTab,
+        setActiveTab,
         reloadVaultData,
         pauseAutoLock,
         resumeAutoLock,

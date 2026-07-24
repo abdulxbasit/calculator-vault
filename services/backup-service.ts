@@ -169,9 +169,15 @@ export async function importEncryptedVault(
   onProgress?.('Reading backup file...');
   let encryptedContent = '';
   try {
-    encryptedContent = await FileSystem.readAsStringAsync(fileUri);
+    const tempReadPath = FileSystem.cacheDirectory + 'temp_read_import.vault';
+    await FileSystem.copyAsync({ from: fileUri, to: tempReadPath });
+    encryptedContent = await FileSystem.readAsStringAsync(tempReadPath);
   } catch {
-    throw new Error('Could not read backup file from device');
+    try {
+      encryptedContent = await FileSystem.readAsStringAsync(fileUri);
+    } catch {
+      throw new Error('Could not read backup file from device');
+    }
   }
 
   // 2. Decrypt with AES-256
