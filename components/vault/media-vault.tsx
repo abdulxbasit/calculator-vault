@@ -499,6 +499,8 @@ export const MediaVault: React.FC = () => {
                   showsHorizontalScrollIndicator={false}
                   keyExtractor={(item) => item.id}
                   initialScrollIndex={selectedIndex}
+                  style={{ flex: 1, width: width }}
+                  contentContainerStyle={{ alignItems: 'center' }}
                   getItemLayout={(_, index) => ({
                     length: width,
                     offset: width * index,
@@ -512,7 +514,7 @@ export const MediaVault: React.FC = () => {
                     }
                   }}
                   renderItem={({ item }) => (
-                    <View style={{ width: width, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ width: width, height: '100%', justifyContent: 'center', alignItems: 'center' }}>
                       {item.type === 'image' ? (
                         <PinchZoomImage
                           uri={item.uri}
@@ -528,7 +530,7 @@ export const MediaVault: React.FC = () => {
               </View>
 
               {/* Glassy Footer Toolbar */}
-              <BlurView intensity={75} tint="dark" style={styles.previewFooter}>
+              <BlurView intensity={75} tint="dark" style={[styles.previewFooter, { paddingBottom: Math.max(insets.bottom + 8, Platform.OS === 'ios' ? 28 : 18) }]}>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(selectedFile)}>
                   <Ionicons name="share-outline" size={20} color="#38bdf8" />
                   <Text style={styles.actionText}>Export</Text>
@@ -912,6 +914,7 @@ const styles = StyleSheet.create({
   },
   previewContent: {
     flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -933,16 +936,12 @@ const styles = StyleSheet.create({
     height: height * 0.7,
   },
   previewFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     zIndex: 30,
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingTop: 14,
     paddingBottom: Platform.OS === 'ios' ? 28 : 18,
-    backgroundColor: 'rgba(18, 18, 18, 0.65)',
+    backgroundColor: 'rgba(18, 18, 18, 0.75)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.12)',
     overflow: 'hidden',

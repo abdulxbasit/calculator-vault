@@ -385,7 +385,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       // Helper: copy a list of items to vault and return VaultFile records
       const copyItems = async (
-        items: { uri: string; originalName: string; type?: 'image' | 'video'; mimeType?: string }[],
+        items: { uri: string; originalName: string; type?: 'image' | 'video' | 'document'; mimeType?: string }[],
         folderId: string
       ): Promise<VaultFile[]> => {
         const { copyFileToVault } = await import('../services/vault-storage');
