@@ -14,7 +14,7 @@
     "android": {
       "package": "com.secret.calculator.vault",
       "adaptiveIcon": {
-        "backgroundColor": "#1e293b",
+        "backgroundColor": "#161616",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "edgeToEdgeEnabled": true,
