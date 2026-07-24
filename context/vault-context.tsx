@@ -41,6 +41,8 @@ interface VaultContextType {
   deleteFolder: (id: string, deleteContents?: boolean) => Promise<boolean>;
   renameFolder: (id: string, name: string) => Promise<boolean>;
   importFolderFromFileManager: (category: 'media' | 'docs', customFolderName?: string) => Promise<boolean>;
+  exportFolderToFileManager: (folderId: string, deleteFromVaultAfterExport?: boolean) => Promise<boolean>;
+  exportFilesBatchToFileManager: (fileIds: string[]) => Promise<boolean>;
 
   // Media & Files
   addMediaFile: (uri: string, originalName: string, type: 'image' | 'video', mimeType?: string, folderId?: string) => Promise<boolean>;
@@ -49,6 +51,7 @@ interface VaultContextType {
   addDocumentFilesBatch: (items: { uri: string; originalName: string; mimeType?: string }[], folderId?: string) => Promise<boolean>;
   moveFileToFolder: (fileId: string, folderId?: string) => Promise<boolean>;
   deleteFile: (id: string) => Promise<boolean>;
+  deleteFilesBatch: (ids: string[]) => Promise<boolean>;
 
   // Notes
   addNote: (title: string, content: string) => Promise<SecretNote>;
@@ -303,6 +306,18 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return true;
   };
 
+  const deleteFilesBatch = async (ids: string[]): Promise<boolean> => {
+    if (!ids.length) return false;
+    const filesToDelete = files.filter((f) => ids.includes(f.id));
+    for (const f of filesToDelete) {
+      await removeFileFromVault(f.uri);
+    }
+    const updated = files.filter((f) => !ids.includes(f.id));
+    setFiles(updated);
+    await persistState(folders, updated, notes, passwords);
+    return true;
+  };
+
   // Notes
   const addNote = async (title: string, content: string): Promise<SecretNote> => {
     const newNote: SecretNote = {
@@ -406,9 +421,22 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (permissions.granted) {
           const dirUri = permissions.directoryUri;
-          const decodedUri = decodeURIComponent(dirUri);
-          const segments = decodedUri.split(/[:\\/]/).filter(Boolean);
-          const detectedName = customFolderName?.trim() || segments[segments.length - 1] || 'Imported Folder';
+          
+          let parsedName = '';
+          try {
+            const decoded = decodeURIComponent(dirUri).replace(/\/+$/, '');
+            const colonIdx = decoded.lastIndexOf(':');
+            const pathPart = colonIdx !== -1 ? decoded.substring(colonIdx + 1) : decoded;
+            const segments = pathPart.split(/[\/\\]/).filter(Boolean);
+            const lastSegment = segments.pop();
+            if (lastSegment && !['primary', 'raw', 'tree', 'document'].includes(lastSegment.toLowerCase())) {
+              parsedName = lastSegment;
+            }
+          } catch (e) {
+            console.error('Error parsing directory Uri:', e);
+          }
+
+          const detectedName = customFolderName?.trim() || parsedName || 'Imported Folder';
 
           const fileUris = await FileSystem.StorageAccessFramework.readDirectoryAsync(dirUri);
           if (fileUris && fileUris.length > 0) {
@@ -446,7 +474,24 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const folderName = customFolderName?.trim() || 'Imported Folder';
+        let parsedName = '';
+        const firstFile = result.assets[0];
+        if (firstFile?.uri) {
+          try {
+            const decoded = decodeURIComponent(firstFile.uri);
+            const parts = decoded.split(/[\/\\]/).filter(Boolean);
+            if (parts.length >= 2) {
+              const parentDir = parts[parts.length - 2];
+              if (parentDir && !['document', 'cache', 'tmp'].includes(parentDir.toLowerCase())) {
+                parsedName = parentDir;
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing document picker Uri:', e);
+          }
+        }
+
+        const folderName = customFolderName?.trim() || parsedName || 'Imported Folder';
         const newFolder = makeFolderObject(folderName);
 
         const items = result.assets.map((file) => {
@@ -479,6 +524,149 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  const exportFolderToFileManager = async (
+    folderId: string,
+    deleteFromVaultAfterExport = false
+  ): Promise<boolean> => {
+    try {
+      const folderFiles = files.filter(
+        (f) =>
+          f.folderId === folderId ||
+          (folderId === 'ALL' && (f.type === 'image' || f.type === 'video'))
+      );
+      if (folderFiles.length === 0) {
+        return false;
+      }
+
+      let success = false;
+
+      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          let targetDirUri = permissions.directoryUri;
+          
+          const targetFolder = folders.find((f) => f.id === folderId);
+          const subFolderName = targetFolder?.name || (folderId === 'ALL' ? 'Secret Media' : 'Exported Folder');
+
+          try {
+            const createdDirUri = await FileSystem.StorageAccessFramework.makeDirectoryAsync(
+              targetDirUri,
+              subFolderName
+            );
+            if (createdDirUri) {
+              targetDirUri = createdDirUri;
+            }
+          } catch {
+            // fallback to selected folder if subfolder creation fails
+          }
+
+          for (const file of folderFiles) {
+            try {
+              const mimeType =
+                file.mimeType ||
+                (file.type === 'image'
+                  ? 'image/jpeg'
+                  : file.type === 'video'
+                    ? 'video/mp4'
+                    : 'application/octet-stream');
+              const baseName = file.name.replace(/\.[^/.]+$/, '') || 'exported_file';
+              const newFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+                targetDirUri,
+                baseName,
+                mimeType
+              );
+              const content = await FileSystem.readAsStringAsync(file.uri, {
+                encoding: 'base64' as any,
+              });
+              await FileSystem.StorageAccessFramework.writeAsStringAsync(newFileUri, content, {
+                encoding: 'base64' as any,
+              });
+            } catch (fileErr) {
+              console.error('Error exporting file to SAF:', file.name, fileErr);
+            }
+          }
+          success = true;
+        }
+      } else {
+        const Sharing = await import('expo-sharing');
+        for (const file of folderFiles) {
+          await Sharing.shareAsync(file.uri);
+        }
+        success = true;
+      }
+
+      if (success && deleteFromVaultAfterExport) {
+        if (folderId === 'ALL') {
+          for (const f of folderFiles) {
+            await removeFileFromVault(f.uri);
+          }
+          const remainingFiles = files.filter((f) => f.type !== 'image' && f.type !== 'video');
+          setFiles(remainingFiles);
+          await persistState(folders, remainingFiles, notes, passwords);
+        } else {
+          await deleteFolder(folderId, true);
+        }
+      }
+
+      return success;
+    } catch (err) {
+      console.error('Error exporting folder:', err);
+      return false;
+    }
+  };
+
+  const exportFilesBatchToFileManager = async (fileIds: string[]): Promise<boolean> => {
+    try {
+      const selectedFiles = files.filter((f) => fileIds.includes(f.id));
+      if (selectedFiles.length === 0) return false;
+
+      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          const targetDirUri = permissions.directoryUri;
+          let count = 0;
+          for (const file of selectedFiles) {
+            try {
+              const mimeType =
+                file.mimeType ||
+                (file.type === 'image'
+                  ? 'image/jpeg'
+                  : file.type === 'video'
+                    ? 'video/mp4'
+                    : 'application/octet-stream');
+              const baseName = file.name.replace(/\.[^/.]+$/, '') || 'exported_file';
+              const newFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+                targetDirUri,
+                baseName,
+                mimeType
+              );
+              const content = await FileSystem.readAsStringAsync(file.uri, {
+                encoding: 'base64' as any,
+              });
+              await FileSystem.StorageAccessFramework.writeAsStringAsync(newFileUri, content, {
+                encoding: 'base64' as any,
+              });
+              count++;
+            } catch (fileErr) {
+              console.error('Error exporting batch file to SAF:', file.name, fileErr);
+            }
+          }
+          return count > 0;
+        }
+      } else {
+        const Sharing = await import('expo-sharing');
+        for (const file of selectedFiles) {
+          await Sharing.shareAsync(file.uri);
+        }
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Error exporting batch files:', err);
+      return false;
+    }
+  };
+
   return (
     <VaultContext.Provider
       value={{
@@ -503,6 +691,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         addDocumentFilesBatch,
         moveFileToFolder,
         deleteFile,
+        deleteFilesBatch,
         addNote,
         updateNote,
         deleteNote,
@@ -510,6 +699,8 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         updatePassword,
         deletePassword,
         importFolderFromFileManager,
+        exportFolderToFileManager,
+        exportFilesBatchToFileManager,
       }}
     >
       {children}

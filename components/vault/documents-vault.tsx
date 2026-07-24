@@ -1,9 +1,11 @@
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  BackHandler,
   Dimensions,
   FlatList,
   ScrollView,
@@ -11,10 +13,9 @@ import {
   Text,
   TouchableOpacity,
   View,
-  BackHandler,
 } from 'react-native';
-import { useVault } from '../../context/vault-context';
 import { useAlert } from '../../context/alert-context';
+import { useVault } from '../../context/vault-context';
 import { VaultFile, VaultFolder } from '../../services/vault-storage';
 import { CreateFolderModal } from './create-folder-modal';
 import { MoveFileModal } from './move-file-modal';
@@ -70,10 +71,13 @@ const DocFolderCard: React.FC<{
 };
 
 export const DocumentsVault: React.FC = () => {
-  const { files, folders, addDocumentFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
+  const { files, folders, addDocumentFilesBatch, deleteFile, deleteFilesBatch, deleteFolder, importFolderFromFileManager, exportFolderToFileManager, exportFilesBatchToFileManager } = useVault();
   const { showAlert } = useAlert();
   // null = Main View showing Folders Grid
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const isSelectionMode = selectedFileIds.length > 0;
 
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [fileToMove, setFileToMove] = useState<VaultFile | null>(null);
@@ -116,6 +120,10 @@ export const DocumentsVault: React.FC = () => {
   // Hardware BackHandler effect
   useEffect(() => {
     const onBackPress = () => {
+      if (selectedFileIds.length > 0) {
+        setSelectedFileIds([]);
+        return true;
+      }
       if (selectedFolderId !== null) {
         setSelectedFolderId(null);
         return true;
@@ -124,7 +132,54 @@ export const DocumentsVault: React.FC = () => {
     };
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [selectedFolderId]);
+  }, [selectedFolderId, selectedFileIds]);
+
+  const toggleSelectFile = (id: string) => {
+    setSelectedFileIds((prev) =>
+      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedFileIds.length === filteredDocFiles.length) {
+      setSelectedFileIds([]);
+    } else {
+      setSelectedFileIds(filteredDocFiles.map((f) => f.id));
+    }
+  };
+
+  const exitSelectionMode = () => {
+    setSelectedFileIds([]);
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedFileIds.length === 0) return;
+    showAlert(
+      'Delete Selected Documents',
+      `Are you sure you want to permanently delete ${selectedFileIds.length} selected document(s)?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteFilesBatch(selectedFileIds);
+            setSelectedFileIds([]);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBatchExport = async () => {
+    if (selectedFileIds.length === 0) return;
+    const count = selectedFileIds.length;
+    const success = await exportFilesBatchToFileManager(selectedFileIds);
+    if (success) {
+      showAlert('Documents Exported', `Successfully exported ${count} document(s) to File Manager.`);
+      setSelectedFileIds([]);
+    }
+  };
 
   const docFolders = folders.filter((f) => f.category === 'docs');
   const allDocFiles = files.filter((f) => f.type === 'document');
@@ -198,22 +253,29 @@ export const DocumentsVault: React.FC = () => {
 
   const handleDeleteFolder = (folder: VaultFolder) => {
     showAlert(
-      'Delete Folder',
-      `Delete folder "${folder.name}"? Files inside will be moved to Root.`,
+      `Folder: ${folder.name}`,
+      `Export to File Manager or delete from Vault.`,
       [
+        {
+          text: 'Move Out & Remove from Vault',
+          style: 'destructive',
+          onPress: async () => {
+            await exportFolderToFileManager(folder.id, true);
+            setSelectedFolderId('ALL');
+          },
+        },
+        {
+          text: 'Export Copy & Keep in Vault',
+          style: 'default',
+          onPress: async () => {
+            await exportFolderToFileManager(folder.id, false);
+          },
+        },
         {
           text: 'Delete Folder & Files',
           style: 'destructive',
           onPress: async () => {
             await deleteFolder(folder.id, true);
-            setSelectedFolderId('ALL');
-          },
-        },
-        {
-          text: 'Delete Folder Only',
-          style: 'default',
-          onPress: async () => {
-            await deleteFolder(folder.id, false);
             setSelectedFolderId('ALL');
           },
         },
@@ -240,8 +302,36 @@ export const DocumentsVault: React.FC = () => {
 
   const renderItem = ({ item }: { item: VaultFile }) => {
     const icon = getDocIcon(item.name);
+    const isSelected = selectedFileIds.includes(item.id);
+
     return (
-      <View style={styles.docCard}>
+      <TouchableOpacity
+        style={[styles.docCard, isSelected && styles.docCardSelected]}
+        onPress={() => {
+          if (isSelectionMode) {
+            toggleSelectFile(item.id);
+          }
+        }}
+        onLongPress={() => {
+          if (!isSelectionMode) {
+            setSelectedFileIds([item.id]);
+          }
+        }}
+        activeOpacity={0.8}
+      >
+        {isSelectionMode && (
+          <TouchableOpacity
+            style={{ marginRight: 10 }}
+            onPress={() => toggleSelectFile(item.id)}
+          >
+            <Ionicons
+              name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+              size={24}
+              color={isSelected ? '#38bdf8' : 'rgba(255,255,255,0.5)'}
+            />
+          </TouchableOpacity>
+        )}
+
         <View style={[styles.iconCircle, { backgroundColor: icon.color + '20' }]}>
           <Ionicons name={icon.name} size={24} color={icon.color} />
         </View>
@@ -255,18 +345,20 @@ export const DocumentsVault: React.FC = () => {
           </Text>
         </View>
 
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionIconBtn} onPress={() => setFileToMove(item)}>
-            <Ionicons name="folder-open-outline" size={19} color="#facc15" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionIconBtn} onPress={() => handleShare(item)}>
-            <Ionicons name="share-outline" size={19} color="#38bdf8" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionIconBtn} onPress={() => handleDelete(item)}>
-            <Ionicons name="trash-outline" size={19} color="#f87171" />
-          </TouchableOpacity>
-        </View>
-      </View>
+        {!isSelectionMode && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.actionIconBtn} onPress={() => setFileToMove(item)}>
+              <Ionicons name="folder-open-outline" size={19} color="#facc15" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionIconBtn} onPress={() => handleShare(item)}>
+              <Ionicons name="share-outline" size={19} color="#38bdf8" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionIconBtn} onPress={() => handleDelete(item)}>
+              <Ionicons name="trash-outline" size={19} color="#f87171" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </TouchableOpacity>
     );
   };
 
@@ -274,25 +366,56 @@ export const DocumentsVault: React.FC = () => {
     <View style={styles.container}>
       {/* Clean Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          disabled={selectedFolderId === null}
-          onPress={() => setSelectedFolderId(null)}
-          style={{ flex: 1 }}
-          activeOpacity={selectedFolderId !== null ? 0.7 : 1}
-        >
-          <Text style={styles.sectionTitle}>
-            {selectedFolderId === null
-              ? 'Secret Documents'
-              : activeFolder
-                ? activeFolder.name
-                : 'All Documents'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {selectedFolderId === null
-              ? `${docFolders.length + 1} folder(s)`
-              : `${filteredDocFiles.length} file(s)`}
-          </Text>
-        </TouchableOpacity>
+        {isSelectionMode ? (
+          <>
+            <TouchableOpacity onPress={exitSelectionMode} style={styles.headerBackBtn}>
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>{selectedFileIds.length} Selected</Text>
+              <Text style={styles.subtitle}>{filteredDocFiles.length} total file(s)</Text>
+            </View>
+            <TouchableOpacity onPress={handleSelectAll} style={styles.selectAllBtn}>
+              <Text style={styles.selectAllText}>
+                {selectedFileIds.length === filteredDocFiles.length ? 'Deselect All' : 'Select All'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              disabled={selectedFolderId === null}
+              onPress={() => {
+                setSelectedFileIds([]);
+                setSelectedFolderId(null);
+              }}
+              style={{ flex: 1 }}
+              activeOpacity={selectedFolderId !== null ? 0.7 : 1}
+            >
+              <Text style={styles.sectionTitle}>
+                {selectedFolderId === null
+                  ? 'Secret Documents'
+                  : activeFolder
+                    ? activeFolder.name
+                    : 'All Documents'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {selectedFolderId === null
+                  ? `${docFolders.length + 1} folder(s)`
+                  : `${filteredDocFiles.length} file(s)`}
+              </Text>
+            </TouchableOpacity>
+
+            {selectedFolderId !== null && filteredDocFiles.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSelectedFileIds([filteredDocFiles[0].id])}
+                style={styles.selectModeIconBtn}
+              >
+                <Ionicons name="checkmark-done-circle-outline" size={24} color="#38bdf8" />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </View>
 
       {/* Main View: Folders First OR Inside Folder Files */}
@@ -425,15 +548,32 @@ export const DocumentsVault: React.FC = () => {
       </Animated.View>
 
       {/* Primary Animated Floating Action Button (FAB) */}
-      <TouchableOpacity
-        style={styles.fabMainBtn}
-        onPress={toggleFab}
-        activeOpacity={0.85}
-      >
-        <Animated.View style={{ transform: [{ rotate: fabRotation }] }}>
-          <Ionicons name="add" size={32} color="#FFFFFF" />
-        </Animated.View>
-      </TouchableOpacity>
+      {!isSelectionMode && (
+        <TouchableOpacity
+          style={styles.fabMainBtn}
+          onPress={toggleFab}
+          activeOpacity={0.85}
+        >
+          <Animated.View style={{ transform: [{ rotate: fabRotation }] }}>
+            <Ionicons name="add" size={32} color="#FFFFFF" />
+          </Animated.View>
+        </TouchableOpacity>
+      )}
+
+      {/* Multi-Select Glassy Floating Action Bar */}
+      {isSelectionMode && (
+        <BlurView intensity={80} tint="dark" style={styles.selectionActionBar}>
+          <TouchableOpacity style={styles.selectionActionBtn} onPress={handleBatchExport}>
+            <Ionicons name="share-outline" size={22} color="#38bdf8" />
+            <Text style={styles.selectionActionText}>Export</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.selectionActionBtn} onPress={handleBatchDelete}>
+            <Ionicons name="trash-outline" size={22} color="#f87171" />
+            <Text style={[styles.selectionActionText, { color: '#f87171' }]}>Delete ({selectedFileIds.length})</Text>
+          </TouchableOpacity>
+        </BlurView>
+      )}
 
       {/* Create Folder Modal */}
       <CreateFolderModal
@@ -476,6 +616,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#A1A1AA',
     marginTop: 2,
+  },
+  headerBackBtn: {
+    paddingRight: 10,
+    paddingVertical: 4,
   },
   backToFoldersBtn: {
     flexDirection: 'row',
@@ -771,5 +915,53 @@ const styles = StyleSheet.create({
   emptyBtnText: {
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  docCardSelected: {
+    borderColor: '#38bdf8',
+    backgroundColor: '#1e293b',
+  },
+  selectAllBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  selectAllText: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  selectModeIconBtn: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  selectionActionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 60,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingTop: 14,
+    paddingBottom: 24,
+    backgroundColor: 'rgba(18, 18, 18, 0.92)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  selectionActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  selectionActionText: {
+    color: '#38bdf8',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

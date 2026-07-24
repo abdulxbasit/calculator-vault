@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   BackHandler,
@@ -20,8 +20,8 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useVault } from '../../context/vault-context';
 import { useAlert } from '../../context/alert-context';
+import { useVault } from '../../context/vault-context';
 import { VaultFile, VaultFolder } from '../../services/vault-storage';
 import { CreateFolderModal } from './create-folder-modal';
 import { MoveFileModal } from './move-file-modal';
@@ -97,11 +97,14 @@ const MediaFolderCard: React.FC<{
 };
 
 export const MediaVault: React.FC = () => {
-  const { files, folders, addMediaFilesBatch, deleteFile, deleteFolder, importFolderFromFileManager } = useVault();
+  const { files, folders, addMediaFilesBatch, deleteFile, deleteFilesBatch, deleteFolder, importFolderFromFileManager, exportFolderToFileManager, exportFilesBatchToFileManager } = useVault();
   const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   // null = Main View showing Folders Grid
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const isSelectionMode = selectedFileIds.length > 0;
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const flatListRef = useRef<FlatList>(null);
@@ -146,6 +149,10 @@ export const MediaVault: React.FC = () => {
   // Hardware BackHandler effect
   useEffect(() => {
     const onBackPress = () => {
+      if (selectedFileIds.length > 0) {
+        setSelectedFileIds([]);
+        return true;
+      }
       if (selectedFolderId !== null) {
         setSelectedFolderId(null);
         return true;
@@ -154,7 +161,54 @@ export const MediaVault: React.FC = () => {
     };
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [selectedFolderId]);
+  }, [selectedFolderId, selectedFileIds]);
+
+  const toggleSelectFile = (id: string) => {
+    setSelectedFileIds((prev) =>
+      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedFileIds.length === filteredMediaFiles.length) {
+      setSelectedFileIds([]);
+    } else {
+      setSelectedFileIds(filteredMediaFiles.map((f) => f.id));
+    }
+  };
+
+  const exitSelectionMode = () => {
+    setSelectedFileIds([]);
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedFileIds.length === 0) return;
+    showAlert(
+      'Delete Selected Items',
+      `Are you sure you want to permanently delete ${selectedFileIds.length} selected item(s)?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteFilesBatch(selectedFileIds);
+            setSelectedFileIds([]);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBatchExport = async () => {
+    if (selectedFileIds.length === 0) return;
+    const count = selectedFileIds.length;
+    const success = await exportFilesBatchToFileManager(selectedFileIds);
+    if (success) {
+      showAlert('Files Exported', `Successfully exported ${count} item(s) to File Manager.`);
+      setSelectedFileIds([]);
+    }
+  };
 
   const handleImportFolder = async () => {
     await importFolderFromFileManager('media');
@@ -260,9 +314,17 @@ export const MediaVault: React.FC = () => {
 
   const handleDeleteFolder = (folder: VaultFolder) => {
     showAlert(
-      'Delete Folder',
-      `Delete "${folder.name}"? Files inside will be moved to Root.`,
+      `Folder: ${folder.name}`,
+      `Export to File Manager or delete from Vault.`,
       [
+        {
+          text: 'Move Out from Vault',
+          style: 'default',
+          onPress: async () => {
+            await exportFolderToFileManager(folder.id, true);
+            setSelectedFolderId('ALL');
+          },
+        },
         {
           text: 'Delete Folder & Files',
           style: 'destructive',
@@ -271,57 +333,105 @@ export const MediaVault: React.FC = () => {
             setSelectedFolderId('ALL');
           },
         },
-        {
-          text: 'Delete Folder Only',
-          style: 'default',
-          onPress: async () => {
-            await deleteFolder(folder.id, false);
-            setSelectedFolderId('ALL');
-          },
-        },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
   };
 
-  const renderItem = ({ item, index }: { item: VaultFile; index: number }) => (
-    <TouchableOpacity
-      style={styles.gridItem}
-      onPress={() => handleOpenPreview(index)}
-      activeOpacity={0.8}
-    >
-      <Image source={{ uri: item.uri }} style={styles.thumbnail} />
-      {item.type === 'video' && (
-        <View style={styles.videoBadge}>
-          <Ionicons name="play-circle" size={24} color="#ffffff" />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item, index }: { item: VaultFile; index: number }) => {
+    const isSelected = selectedFileIds.includes(item.id);
+
+    return (
+      <TouchableOpacity
+        style={[styles.gridItem, isSelected && styles.gridItemSelected]}
+        onPress={() => {
+          if (isSelectionMode) {
+            toggleSelectFile(item.id);
+          } else {
+            handleOpenPreview(index);
+          }
+        }}
+        onLongPress={() => {
+          if (!isSelectionMode) {
+            setSelectedFileIds([item.id]);
+          }
+        }}
+        activeOpacity={0.8}
+      >
+        <Image source={{ uri: item.uri }} style={styles.thumbnail} />
+        {item.type === 'video' && (
+          <View style={styles.videoBadge}>
+            <Ionicons name="play-circle" size={24} color="#ffffff" />
+          </View>
+        )}
+
+        {isSelectionMode && (
+          <View style={[styles.checkboxOverlay, isSelected && styles.checkboxOverlayActive]}>
+            <Ionicons
+              name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+              size={22}
+              color={isSelected ? '#38bdf8' : 'rgba(255,255,255,0.7)'}
+            />
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
       {/* Clean Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          disabled={selectedFolderId === null}
-          onPress={() => setSelectedFolderId(null)}
-          style={{ flex: 1 }}
-          activeOpacity={selectedFolderId !== null ? 0.7 : 1}
-        >
-          <Text style={styles.sectionTitle}>
-            {selectedFolderId === null
-              ? 'Photos & Videos'
-              : activeFolder
-                ? activeFolder.name
-                : 'All Media'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {selectedFolderId === null
-              ? `${mediaFolders.length + 1} folder(s)`
-              : `${filteredMediaFiles.length} item(s)`}
-          </Text>
-        </TouchableOpacity>
+        {isSelectionMode ? (
+          <>
+            <TouchableOpacity onPress={exitSelectionMode} style={styles.headerBackBtn}>
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>{selectedFileIds.length} Selected</Text>
+              <Text style={styles.subtitle}>{filteredMediaFiles.length} total item(s)</Text>
+            </View>
+            <TouchableOpacity onPress={handleSelectAll} style={styles.selectAllBtn}>
+              <Text style={styles.selectAllText}>
+                {selectedFileIds.length === filteredMediaFiles.length ? 'Deselect All' : 'Select All'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              disabled={selectedFolderId === null}
+              onPress={() => {
+                setSelectedFileIds([]);
+                setSelectedFolderId(null);
+              }}
+              style={{ flex: 1 }}
+              activeOpacity={selectedFolderId !== null ? 0.7 : 1}
+            >
+              <Text style={styles.sectionTitle}>
+                {selectedFolderId === null
+                  ? 'Photos & Videos'
+                  : activeFolder
+                    ? activeFolder.name
+                    : 'All Media'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {selectedFolderId === null
+                  ? `${mediaFolders.length + 1} folder(s)`
+                  : `${filteredMediaFiles.length} item(s)`}
+              </Text>
+            </TouchableOpacity>
+
+            {selectedFolderId !== null && filteredMediaFiles.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSelectedFileIds([filteredMediaFiles[0].id])}
+                style={styles.selectModeIconBtn}
+              >
+                <Ionicons name="checkmark-done-circle-outline" size={24} color="#38bdf8" />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </View>
 
       {/* Main View: Folders First OR Inside Folder Files */}
@@ -454,15 +564,32 @@ export const MediaVault: React.FC = () => {
       </Animated.View>
 
       {/* Primary Animated Floating Action Button (FAB) */}
-      <TouchableOpacity
-        style={styles.fabMainBtn}
-        onPress={toggleFab}
-        activeOpacity={0.85}
-      >
-        <Animated.View style={{ transform: [{ rotate: fabRotation }] }}>
-          <Ionicons name="add" size={32} color="#FFFFFF" />
-        </Animated.View>
-      </TouchableOpacity>
+      {!isSelectionMode && (
+        <TouchableOpacity
+          style={styles.fabMainBtn}
+          onPress={toggleFab}
+          activeOpacity={0.85}
+        >
+          <Animated.View style={{ transform: [{ rotate: fabRotation }] }}>
+            <Ionicons name="add" size={32} color="#FFFFFF" />
+          </Animated.View>
+        </TouchableOpacity>
+      )}
+
+      {/* Multi-Select Glassy Floating Action Bar */}
+      {isSelectionMode && (
+        <BlurView intensity={80} tint="dark" style={[styles.selectionActionBar, { paddingBottom: Math.max(insets.bottom + 8, 16) }]}>
+          <TouchableOpacity style={styles.selectionActionBtn} onPress={handleBatchExport}>
+            <Ionicons name="share-outline" size={22} color="#38bdf8" />
+            <Text style={styles.selectionActionText}>Export</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.selectionActionBtn} onPress={handleBatchDelete}>
+            <Ionicons name="trash-outline" size={22} color="#f87171" />
+            <Text style={[styles.selectionActionText, { color: '#f87171' }]}>Delete ({selectedFileIds.length})</Text>
+          </TouchableOpacity>
+        </BlurView>
+      )}
 
       {/* Media Fullscreen Interactive Zoom Preview Modal with Left/Right Swipe */}
       {selectedIndex !== null && selectedFile && (
@@ -959,5 +1086,63 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
+  },
+  selectAllBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#1e293b',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  selectAllText: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  selectModeIconBtn: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  gridItemSelected: {
+    borderWidth: 2,
+    borderColor: '#38bdf8',
+  },
+  checkboxOverlay: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+  },
+  checkboxOverlayActive: {
+    backgroundColor: '#0f172a',
+  },
+  selectionActionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 60,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingTop: 14,
+    backgroundColor: 'rgba(18, 18, 18, 0.92)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  selectionActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  selectionActionText: {
+    color: '#38bdf8',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
