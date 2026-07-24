@@ -6,7 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,6 +40,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ visible, onClose }) =>
   // Status & Progress State
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
+  const [progressPercent, setProgressPercent] = useState<number>(0);
 
   const resetForm = () => {
     setExportPassword('');
@@ -51,6 +51,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ visible, onClose }) =>
     setImportMode('merge');
     setIsProcessing(false);
     setProgressMsg('');
+    setProgressPercent(0);
   };
 
   const handleClose = () => {
@@ -74,9 +75,13 @@ export const BackupModal: React.FC<BackupModalProps> = ({ visible, onClose }) =>
     }
 
     setIsProcessing(true);
+    setProgressPercent(0);
     try {
       pauseAutoLock();
-      await exportEncryptedVault(exportPassword, target, (msg) => setProgressMsg(msg));
+      await exportEncryptedVault(exportPassword, target, (msg, percent) => {
+        setProgressMsg(msg);
+        if (typeof percent === 'number') setProgressPercent(percent);
+      });
       showAlert(
         'Export Complete',
         target === 'local'
@@ -90,6 +95,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({ visible, onClose }) =>
     } finally {
       setIsProcessing(false);
       setProgressMsg('');
+      setProgressPercent(0);
       resumeAutoLock();
     }
   };
@@ -127,13 +133,17 @@ export const BackupModal: React.FC<BackupModalProps> = ({ visible, onClose }) =>
     }
 
     setIsProcessing(true);
+    setProgressPercent(0);
     try {
       pauseAutoLock();
       const res = await importEncryptedVault(
         importPassword,
         selectedFileUri,
         importMode,
-        (msg) => setProgressMsg(msg)
+        (msg, percent) => {
+          setProgressMsg(msg);
+          if (typeof percent === 'number') setProgressPercent(percent);
+        }
       );
 
       if (res.success) {
@@ -257,8 +267,20 @@ export const BackupModal: React.FC<BackupModalProps> = ({ visible, onClose }) =>
 
                 {isProcessing ? (
                   <View style={styles.loadingBox}>
-                    <ActivityIndicator size="large" color="#3b82f6" />
-                    <Text style={styles.loadingText}>{progressMsg || 'Processing...'}</Text>
+                    <View style={styles.progressHeaderRow}>
+                      <Text style={styles.loadingText} numberOfLines={1}>
+                        {progressMsg || 'Processing...'}
+                      </Text>
+                      <Text style={styles.progressPercentText}>{progressPercent}%</Text>
+                    </View>
+                    <View style={styles.progressBarTrack}>
+                      <View
+                        style={[
+                          styles.progressBarFill,
+                          { width: `${Math.min(100, Math.max(0, progressPercent))}%` },
+                        ]}
+                      />
+                    </View>
                   </View>
                 ) : (
                   <View style={{ gap: 10, marginTop: 10 }}>
@@ -354,8 +376,20 @@ export const BackupModal: React.FC<BackupModalProps> = ({ visible, onClose }) =>
 
                 {isProcessing ? (
                   <View style={styles.loadingBox}>
-                    <ActivityIndicator size="large" color="#3b82f6" />
-                    <Text style={styles.loadingText}>{progressMsg || 'Decrypting & restoring...'}</Text>
+                    <View style={styles.progressHeaderRow}>
+                      <Text style={styles.loadingText} numberOfLines={1}>
+                        {progressMsg || 'Decrypting & restoring...'}
+                      </Text>
+                      <Text style={styles.progressPercentText}>{progressPercent}%</Text>
+                    </View>
+                    <View style={styles.progressBarTrack}>
+                      <View
+                        style={[
+                          styles.progressBarFill,
+                          { width: `${Math.min(100, Math.max(0, progressPercent))}%` },
+                        ]}
+                      />
+                    </View>
                   </View>
                 ) : (
                   <TouchableOpacity style={styles.primaryBtnSuccess} onPress={handleImport}>
@@ -559,14 +593,43 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   loadingBox: {
-    alignItems: 'center',
-    paddingVertical: 20,
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#2a2a2e',
     gap: 10,
+    marginTop: 10,
+  },
+  progressHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   loadingText: {
+    flex: 1,
     fontSize: 13,
     color: '#38bdf8',
     fontWeight: '500',
+  },
+  progressPercentText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#38bdf8',
+  },
+  progressBarTrack: {
+    height: 8,
+    backgroundColor: '#262626',
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#383838',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#2563eb',
+    borderRadius: 4,
   },
   secondaryBtn: {
     flexDirection: 'row',

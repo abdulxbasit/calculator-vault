@@ -50,10 +50,10 @@ export interface VaultMetadata {
   securityQuestion?: string;
 }
 
-const VAULT_DIR = (FileSystem.documentDirectory || '') + 'vault/';
-const MEDIA_DIR = VAULT_DIR + 'media/';
-const DOCS_DIR = VAULT_DIR + 'docs/';
-const METADATA_FILE = VAULT_DIR + 'metadata.json';
+export const VAULT_DIR = (FileSystem.documentDirectory || '') + 'vault/';
+export const MEDIA_DIR = VAULT_DIR + 'media/';
+export const DOCS_DIR = VAULT_DIR + 'docs/';
+export const METADATA_FILE = VAULT_DIR + 'metadata.json';
 
 const PIN_HASH_KEY = 'vault_pin_hash_v1';
 const SECURITY_Q_KEY = 'vault_sec_q_v1';
