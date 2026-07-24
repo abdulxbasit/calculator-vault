@@ -246,6 +246,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                       style={[
                         btnStyle,
                         !isMultiVertical && buttons.length > 1 && { flex: 1 },
+                        !isMultiVertical && buttons.length === 1 && { minWidth: 140, alignSelf: 'center' },
                       ]}
                       onPress={() => handleButtonPress(btn)}
                       activeOpacity={0.8}
@@ -319,6 +320,7 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
     marginTop: 24,
   },

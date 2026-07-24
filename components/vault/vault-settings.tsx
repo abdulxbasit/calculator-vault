@@ -1,16 +1,16 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
+  Image,
+  ScrollView,
   StyleSheet,
   Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
   TextInput,
-  Image,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useVault } from '../../context/vault-context';
 import { useAlert } from '../../context/alert-context';
+import { useVault } from '../../context/vault-context';
 import { BackupModal } from './backup-modal';
 
 export const VaultSettings: React.FC = () => {
@@ -98,6 +98,31 @@ export const VaultSettings: React.FC = () => {
           <Text style={styles.statLabel}>Notes</Text>
         </View>
       </View>
+      <View style={styles.divider} />
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Backup & Data Protection</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.backupSub}>
+          Export or import your entire vault (photos, videos, documents, secret notes, and passwords) protected with an AES-256 password.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.backupActionBtn}
+          onPress={() => setShowBackupModal(true)}
+        >
+          <View style={styles.backupActionIcon}>
+            <Ionicons name="shield-half-outline" size={22} color="#38bdf8" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.backupActionTitle}>Password-Protected Backup</Text>
+            <Text style={styles.backupActionSub}>Export or import encrypted (.vault) bundle</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#a1a1aa" />
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.divider} />
 
@@ -139,33 +164,6 @@ export const VaultSettings: React.FC = () => {
           <Text style={styles.saveBtnText}>Update PIN & Security</Text>
         </TouchableOpacity>
       </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Backup & Data Protection</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.backupSub}>
-          Export or import your entire vault (photos, videos, documents, secret notes, and passwords) protected with an AES-256 password.
-        </Text>
-
-        <TouchableOpacity
-          style={styles.backupActionBtn}
-          onPress={() => setShowBackupModal(true)}
-        >
-          <View style={styles.backupActionIcon}>
-            <Ionicons name="shield-half-outline" size={22} color="#38bdf8" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.backupActionTitle}>Password-Protected Backup</Text>
-            <Text style={styles.backupActionSub}>Export or import encrypted (.vault) bundle</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#a1a1aa" />
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.divider} />
 
       <View style={styles.sectionHeader}>

@@ -9,6 +9,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useVault } from '../../context/vault-context';
 import { useAlert } from '../../context/alert-context';
 import { PasswordRecord } from '../../services/vault-storage';
@@ -21,41 +22,43 @@ export const PasswordsVault: React.FC = () => {
   const [visiblePasswords, setVisiblePasswords] = useState<{ [id: string]: boolean }>({});
 
   const [title, setTitle] = useState('');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [website, setWebsite] = useState('');
-  const [notes, setNotes] = useState('');
 
   const openNewModal = () => {
     setEditingItem(null);
     setTitle('');
-    setUsername('');
+    setEmail('');
     setPassword('');
-    setWebsite('');
-    setNotes('');
     setModalVisible(true);
   };
 
   const openEditModal = (item: PasswordRecord) => {
     setEditingItem(item);
     setTitle(item.title);
-    setUsername(item.username);
-    setPassword(item.password);
-    setWebsite(item.website || '');
-    setNotes(item.notes || '');
+    setEmail(item.username || '');
+    setPassword(item.password || '');
     setModalVisible(true);
   };
 
   const handleSave = async () => {
-    if (!title.trim() || !password.trim()) {
-      showAlert('Validation Error', 'Title and password are required.');
+    if (!title.trim()) {
+      showAlert('Validation Error', 'Service title (e.g. Google, Netflix) is required.');
       return;
     }
 
+    const payload = {
+      title: title.trim(),
+      username: email.trim(),
+      password: password,
+      website: '',
+      notes: '',
+    };
+
     if (editingItem) {
-      await updatePassword(editingItem.id, { title, username, password, website, notes });
+      await updatePassword(editingItem.id, payload);
     } else {
-      await addPassword({ title, username, password, website, notes });
+      await addPassword(payload);
     }
 
     setModalVisible(false);
@@ -79,40 +82,89 @@ export const PasswordsVault: React.FC = () => {
     setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const copyToClipboard = async (text: string, label: string) => {
+    if (!text) {
+      showAlert('Notice', `No ${label.toLowerCase()} saved to copy.`);
+      return;
+    }
+    await Clipboard.setStringAsync(text);
+    showAlert('Copied', `${label} copied to clipboard!`);
+  };
+
   const renderItem = ({ item }: { item: PasswordRecord }) => {
     const isPassVisible = !!visiblePasswords[item.id];
 
     return (
       <View style={styles.card}>
+        {/* Card Header: Service Title & Quick Actions */}
         <View style={styles.cardHeader}>
           <View style={styles.badgeIcon}>
-            <Ionicons name="key" size={20} color="#FFFFFF" />
+            <Ionicons name="key" size={20} color="#ffffff" />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            {item.username ? (
-              <Text style={styles.cardUsername}>{item.username}</Text>
-            ) : null}
+
+          <Text style={styles.cardTitle}>{item.title}</Text>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={() => openEditModal(item)} style={styles.actionIconBtn}>
+              <Ionicons name="create-outline" size={20} color="#a1a1aa" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionIconBtn}>
+              <Ionicons name="trash-outline" size={20} color="#ef4444" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => openEditModal(item)} style={styles.editBtn}>
-            <Ionicons name="create-outline" size={20} color="#A1A1AA" />
-          </TouchableOpacity>
         </View>
 
-        <View style={styles.passwordRow}>
-          <Text style={styles.passwordText}>
-            {isPassVisible ? item.password : '••••••••••••'}
-          </Text>
-          <TouchableOpacity
-            style={styles.eyeBtn}
-            onPress={() => toggleVisibility(item.id)}
-          >
-            <Ionicons
-              name={isPassVisible ? 'eye-off-outline' : 'eye-outline'}
-              size={20}
-              color="#A1A1AA"
-            />
-          </TouchableOpacity>
+        {/* Email Row */}
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldLeft}>
+            <Text style={styles.fieldLabel}>Email / Username</Text>
+            <Text style={styles.fieldValueText} numberOfLines={1}>
+              {item.username || 'Not specified'}
+            </Text>
+          </View>
+          {item.username ? (
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={() => copyToClipboard(item.username, 'Email')}
+            >
+              <Ionicons name="copy-outline" size={16} color="#a1a1aa" />
+              <Text style={styles.copyBtnText}>Copy Email</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Password Row */}
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldLeft}>
+            <Text style={styles.fieldLabel}>Password</Text>
+            <Text style={[styles.fieldValueText, styles.passwordFont]}>
+              {isPassVisible ? item.password || 'No Password' : '••••••••••••'}
+            </Text>
+          </View>
+
+          <View style={styles.passRowActions}>
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => toggleVisibility(item.id)}
+            >
+              <Ionicons
+                name={isPassVisible ? 'eye-off-outline' : 'eye-outline'}
+                size={18}
+                color="#a1a1aa"
+              />
+            </TouchableOpacity>
+
+            {item.password ? (
+              <TouchableOpacity
+                style={styles.copyBtn}
+                onPress={() => copyToClipboard(item.password, 'Password')}
+              >
+                <Ionicons name="copy-outline" size={16} color="#a1a1aa" />
+                <Text style={styles.copyBtnText}>Copy Pass</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
       </View>
     );
@@ -127,15 +179,15 @@ export const PasswordsVault: React.FC = () => {
         </View>
 
         <TouchableOpacity style={styles.importBtn} onPress={openNewModal}>
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.importBtnText}>Add Login</Text>
+          <Ionicons name="add" size={20} color="#ffffff" />
+          <Text style={styles.importBtnText}>Add Password</Text>
         </TouchableOpacity>
       </View>
 
       {passwords.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconCircle}>
-            <Ionicons name="key-outline" size={48} color="#A1A1AA" />
+            <Ionicons name="key-outline" size={48} color="#a1a1aa" />
           </View>
           <Text style={styles.emptyTitle}>No Passwords Saved</Text>
           <Text style={styles.emptySubtitle}>
@@ -154,75 +206,54 @@ export const PasswordsVault: React.FC = () => {
         />
       )}
 
-      {/* Editor Modal */}
+      {/* 3-Field Editor Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalHeaderTitle}>
-                {editingItem ? 'Edit Credential' : 'Add Credential'}
+                {editingItem ? 'Edit Password' : 'Add Password'}
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#A1A1AA" />
+                <Ionicons name="close" size={24} color="#a1a1aa" />
               </TouchableOpacity>
             </View>
 
+            {/* Field 1: Service Title */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Title / Account Name *</Text>
+              <Text style={styles.label}>Service Title *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g. Gmail, Bank Account, Netflix"
+                placeholder="e.g. Google, Netflix, Bank"
                 placeholderTextColor="#64748b"
                 value={title}
                 onChangeText={setTitle}
               />
             </View>
 
+            {/* Field 2: Email / Username */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username / Email</Text>
+              <Text style={styles.label}>Email / Username</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. john@example.com"
                 placeholderTextColor="#64748b"
-                value={username}
-                onChangeText={setUsername}
+                value={email}
+                onChangeText={setEmail}
                 autoCapitalize="none"
               />
             </View>
 
+            {/* Field 3: Password */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password *</Text>
+              <Text style={styles.label}>Password</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Secret Password"
+                placeholder="Enter password"
                 placeholderTextColor="#64748b"
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Website / App URL</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="https://..."
-                placeholderTextColor="#64748b"
-                value={website}
-                onChangeText={setWebsite}
                 autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Notes</Text>
-              <TextInput
-                style={[styles.input, { height: 72 }]}
-                placeholder="Additional secret notes..."
-                placeholderTextColor="#64748b"
-                multiline
-                value={notes}
-                onChangeText={setNotes}
               />
             </View>
 
@@ -249,7 +280,7 @@ export const PasswordsVault: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#161616',
+    backgroundColor: '#121212',
   },
   header: {
     flexDirection: 'row',
@@ -263,24 +294,24 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#ffffff',
   },
   subtitle: {
     fontSize: 12,
-    color: '#A1A1AA',
+    color: '#a1a1aa',
     marginTop: 2,
   },
   importBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2563eb',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
   },
   importBtnText: {
-    color: '#FFFFFF',
+    color: '#ffffff',
     fontWeight: '600',
     fontSize: 13,
   },
@@ -289,58 +320,93 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    backgroundColor: '#262626',
+    backgroundColor: '#202124',
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#383838',
+    borderColor: '#3c4043',
+    gap: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
   },
   badgeIcon: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    backgroundColor: '#353535',
+    backgroundColor: '#2563eb',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#ffffff',
+    flex: 1,
   },
-  cardUsername: {
-    fontSize: 13,
-    color: '#A1A1AA',
-    marginTop: 2,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  editBtn: {
+  actionIconBtn: {
     padding: 6,
   },
-  passwordRow: {
+  fieldRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#181818',
-    borderRadius: 8,
+    justifyContent: 'space-between',
+    backgroundColor: '#161616',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#383838',
+    borderColor: '#333333',
   },
-  passwordText: {
-    fontSize: 15,
-    color: '#FFFFFF',
+  fieldLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  fieldLabel: {
+    fontSize: 10,
+    color: '#9ca3af',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  fieldValueText: {
+    fontSize: 14,
+    color: '#ffffff',
+  },
+  passwordFont: {
     fontFamily: 'monospace',
     letterSpacing: 1,
   },
+  passRowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   eyeBtn: {
-    padding: 4,
+    padding: 6,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#2a2a2e',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#3f3f46',
+  },
+  copyBtnText: {
+    fontSize: 11,
+    color: '#e4e4e7',
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,
@@ -352,7 +418,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#262626',
+    backgroundColor: '#202124',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -360,24 +426,24 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#ffffff',
     marginBottom: 6,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#A1A1AA',
+    color: '#a1a1aa',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 18,
   },
   emptyBtn: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2563eb',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
   },
   emptyBtnText: {
-    color: '#FFFFFF',
+    color: '#ffffff',
     fontWeight: '600',
   },
   modalOverlay: {
@@ -387,11 +453,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalContent: {
-    backgroundColor: '#262626',
+    backgroundColor: '#202124',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#383838',
+    borderColor: '#3c4043',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -402,31 +468,50 @@ const styles = StyleSheet.create({
   modalHeaderTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#ffffff',
   },
   inputGroup: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#A1A1AA',
-    marginBottom: 4,
+    color: '#a1a1aa',
+    marginBottom: 6,
   },
   input: {
-    backgroundColor: '#181818',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    backgroundColor: '#161616',
+    borderRadius: 10,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 15,
     borderWidth: 1,
     borderColor: '#383838',
+  },
+  modalPasswordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161616',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#383838',
+    paddingRight: 10,
+  },
+  modalPasswordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: '#ffffff',
+    fontSize: 15,
+  },
+  modalEyeBtn: {
+    padding: 4,
   },
   btnRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 12,
+    marginTop: 14,
   },
   modalBtn: {
     flex: 1,
@@ -435,19 +520,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   deleteBtn: {
-    backgroundColor: '#3A1E1E',
+    backgroundColor: '#3a1e1e',
     borderWidth: 1,
-    borderColor: '#EF4444',
+    borderColor: '#ef4444',
   },
   deleteBtnText: {
-    color: '#F87171',
+    color: '#f87171',
     fontWeight: 'bold',
   },
   saveBtn: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#2563eb',
   },
   saveBtnText: {
-    color: '#FFFFFF',
+    color: '#ffffff',
     fontWeight: 'bold',
   },
 });
