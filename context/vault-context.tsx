@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { AppState, AppStateStatus, Platform, Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ScreenCapture from 'expo-screen-capture';
 import {
   VaultFolder,
   VaultFile,
@@ -144,6 +145,22 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
   }, []);
+
+  // Prevent recent apps / task switcher screenshot of unlocked vault
+  useEffect(() => {
+    async function updateScreenCapture() {
+      try {
+        if (isUnlocked) {
+          await ScreenCapture.preventScreenCaptureAsync();
+        } else {
+          await ScreenCapture.allowScreenCaptureAsync();
+        }
+      } catch {
+        // Ignored on unsupported platforms/simulators
+      }
+    }
+    updateScreenCapture();
+  }, [isUnlocked]);
 
   // Save metadata updates
   const persistState = async (
