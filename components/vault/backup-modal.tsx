@@ -100,16 +100,17 @@ export const BackupModal: React.FC<BackupModalProps> = ({ visible, onClose }) =>
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
         copyToCacheDirectory: true,
+        multiple: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const file = result.assets[0];
         setSelectedFileUri(file.uri);
-        setSelectedFileName(file.name);
+        setSelectedFileName(file.name || 'backup.vault');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error picking backup file:', err);
-      showAlert('File Picker Error', 'Could not select backup file.');
+      showAlert('File Picker Error', err?.message || 'Could not select backup file.');
     } finally {
       resumeAutoLock();
     }
