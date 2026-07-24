@@ -45,7 +45,7 @@ export async function exportEncryptedVault(
   // 1. Add metadata JSON
   zip.file('metadata.json', JSON.stringify(metadata, null, 2));
 
-  // 2. Add media & doc files to zip using STORE compression to eliminate CPU bottleneck
+  // 2. Add media & doc files to zip
   const totalFiles = metadata.files.length;
   let processed = 0;
 
@@ -54,43 +54,34 @@ export async function exportEncryptedVault(
     const filePercent = Math.round(5 + (processed / Math.max(1, totalFiles)) * 55);
     onProgress?.(`Packing file ${processed}/${totalFiles}: ${file.name}`, filePercent);
 
-    // Yield JS thread so React UI renders progress updates
-    await new Promise((r) => setTimeout(r, 10));
-
     try {
       const fileInfo = await FileSystem.getInfoAsync(file.uri);
       if (fileInfo.exists) {
         const fileBase64 = await FileSystem.readAsStringAsync(file.uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
-        zip.file(`data/${file.id}`, fileBase64, { base64: true, compression: 'STORE' });
+        zip.file(`data/${file.id}`, fileBase64, { base64: true });
       }
     } catch (err) {
       console.warn(`Failed to read file ${file.name} for backup:`, err);
     }
   }
 
-  // 3. Generate raw zip base64 with STORE compression and percentage reporting
+  // 3. Generate raw zip base64 with progress reporting
   onProgress?.('Creating zip archive...', 62);
-  const zipBase64 = await zip.generateAsync(
-    { type: 'base64', compression: 'STORE' },
-    (zipMeta) => {
-      const zipPercent = Math.round(62 + (zipMeta.percent * 0.20));
-      onProgress?.(`Creating zip archive (${Math.round(zipMeta.percent)}%)...`, zipPercent);
-    }
-  );
+  const zipBase64 = await zip.generateAsync({ type: 'base64' }, (zipMeta) => {
+    const zipPercent = Math.round(62 + (zipMeta.percent * 0.20));
+    onProgress?.(`Creating zip archive (${Math.round(zipMeta.percent)}%)...`, zipPercent);
+  });
 
   // 4. Encrypt zip string using AES-256 with password
   onProgress?.('Encrypting archive with AES-256...', 85);
-  await new Promise((r) => setTimeout(r, 10));
   const encryptedPayload = CryptoJS.AES.encrypt(zipBase64, password.trim()).toString();
 
   const timeStamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const backupFileName = `Vault_Backup_${timeStamp}.vault`;
 
-  // 5. Handle Save Target
-  onProgress?.('Writing backup to storage...', 95);
-
+  // 5. Handle Save Target (Local Phone Storage vs Native Share Sheet)
   if (target === 'local') {
     if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
       onProgress?.('Select folder to save backup...', 96);
@@ -177,7 +168,6 @@ export async function importEncryptedVault(
 
   // 2. Decrypt with AES-256
   onProgress?.('Decrypting backup with password...', 25);
-  await new Promise((r) => setTimeout(r, 10));
   let decryptedZipBase64 = '';
   try {
     const bytes = CryptoJS.AES.decrypt(encryptedContent.trim(), password.trim());
@@ -226,8 +216,6 @@ export async function importEncryptedVault(
     fileIndex++;
     const restorePercent = Math.round(50 + (fileIndex / Math.max(1, backupFiles.length)) * 40);
     onProgress?.(`Restoring file ${fileIndex}/${backupFiles.length}: ${fileItem.name}`, restorePercent);
-
-    await new Promise((r) => setTimeout(r, 10));
 
     const zipEntry = zip.file(`data/${fileItem.id}`);
     if (zipEntry) {
