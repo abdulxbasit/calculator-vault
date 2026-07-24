@@ -1,50 +1,40 @@
-# Welcome to your Expo app 👋
+# 🔒 Secret Vault Calculator
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A discrete, password-protected Vault disguised as a fully functional Calculator app built with React Native and Expo SDK 54.
 
-## Get started
+## 📱 Download Android APK
 
-1. Install dependencies
+[![Download Secret Vault Calculator APK](https://img.shields.io/badge/Download-SecretVaultCalculator.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/abdulxbasit/calculator-vault/releases/download/v1.0.0/SecretVaultCalculator.apk)
 
+Click the button above or download directly from the [GitHub Releases Page](https://github.com/abdulxbasit/calculator-vault/releases/tag/v1.0.0).
+
+---
+
+## ✨ Features
+
+- **Calculator Disguise**: Fully functional dark-mode calculator interface that unlocks the secret vault when your PIN is entered followed by `=`.
+- **Media Vault**: Store encrypted private photos and videos.
+- **Documents Vault**: Safely import and organize confidential documents (PDFs, spreadsheets, text files).
+- **Google Keep Style Notes**: WYSIWYG rich text notes editor with custom Google Keep dark color themes and formatting toolbar.
+- **Clean Password Keeper**: Store account logins and passwords with 1-tap copy actions for email and password.
+- **AES-256 Encrypted Backups**: Password-protected export and import (`.vault` bundles) to backup all your data locally or share securely.
+- **Task Switcher Privacy Shield**: Native `FLAG_SECURE` integration (`expo-screen-capture`) prevents screenshot previews of your vault contents when switching recent apps.
+
+---
+
+## 🚀 Getting Started
+
+1. **Install Dependencies**
    ```bash
    npm install
    ```
 
-2. Start the app
-
+2. **Run Development Server**
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+3. **Build Standalone Android APK**
+   ```bash
+   cd android && .\gradlew.bat assembleRelease
+   ```
