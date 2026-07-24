@@ -71,7 +71,7 @@ const DocFolderCard: React.FC<{
 };
 
 export const DocumentsVault: React.FC = () => {
-  const { files, folders, addDocumentFilesBatch, deleteFile, deleteFilesBatch, deleteFolder, importFolderFromFileManager, exportFolderToFileManager, exportFilesBatchToFileManager } = useVault();
+  const { files, folders, addDocumentFilesBatch, deleteFile, deleteFilesBatch, deleteFolder, importFolderFromFileManager, exportFolderToFileManager, exportFilesBatchToFileManager, pauseAutoLock, resumeAutoLock } = useVault();
   const { showAlert } = useAlert();
   // null = Main View showing Folders Grid
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -198,6 +198,7 @@ export const DocumentsVault: React.FC = () => {
 
   const handlePickDocument = async () => {
     try {
+      pauseAutoLock();
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
         copyToCacheDirectory: true,
@@ -221,11 +222,14 @@ export const DocumentsVault: React.FC = () => {
     } catch (err) {
       console.error('Document import error:', err);
       showAlert('Import Failed', 'Could not pick document.');
+    } finally {
+      resumeAutoLock();
     }
   };
 
   const handleShare = async (file: VaultFile) => {
     try {
+      pauseAutoLock();
       const available = await Sharing.isAvailableAsync();
       if (!available) {
         showAlert('Sharing Unavailable', 'Sharing is not supported on this device.');
@@ -237,6 +241,8 @@ export const DocumentsVault: React.FC = () => {
       });
     } catch (err) {
       console.error('Error sharing document:', err);
+    } finally {
+      resumeAutoLock();
     }
   };
 

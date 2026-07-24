@@ -97,7 +97,7 @@ const MediaFolderCard: React.FC<{
 };
 
 export const MediaVault: React.FC = () => {
-  const { files, folders, addMediaFilesBatch, deleteFile, deleteFilesBatch, deleteFolder, importFolderFromFileManager, exportFolderToFileManager, exportFilesBatchToFileManager } = useVault();
+  const { files, folders, addMediaFilesBatch, deleteFile, deleteFilesBatch, deleteFolder, importFolderFromFileManager, exportFolderToFileManager, exportFilesBatchToFileManager, pauseAutoLock, resumeAutoLock } = useVault();
   const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   // null = Main View showing Folders Grid
@@ -151,6 +151,10 @@ export const MediaVault: React.FC = () => {
   // Hardware BackHandler effect
   useEffect(() => {
     const onBackPress = () => {
+      if (selectedIndex !== null) {
+        setSelectedIndex(null);
+        return true;
+      }
       if (selectedFileIds.length > 0) {
         setSelectedFileIds([]);
         return true;
@@ -163,7 +167,7 @@ export const MediaVault: React.FC = () => {
     };
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [selectedFolderId, selectedFileIds]);
+  }, [selectedFolderId, selectedFileIds, selectedIndex]);
 
   const toggleSelectFile = (id: string) => {
     setSelectedFileIds((prev) =>
@@ -186,8 +190,8 @@ export const MediaVault: React.FC = () => {
   const handleBatchDelete = () => {
     if (selectedFileIds.length === 0) return;
     showAlert(
-      'Delete Selected Items',
-      `Are you sure you want to permanently delete ${selectedFileIds.length} selected item(s)?`,
+      'Delete Selected Media',
+      `Are you sure you want to permanently delete ${selectedFileIds.length} selected file(s)?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -234,12 +238,9 @@ export const MediaVault: React.FC = () => {
     setSelectedIndex(index);
   };
 
-
-
-
-
   const handlePickMedia = async () => {
     try {
+      pauseAutoLock();
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         showAlert('Permission Denied', 'Permission to access media library is required.');
@@ -275,11 +276,14 @@ export const MediaVault: React.FC = () => {
     } catch (err) {
       console.error('Media import error:', err);
       showAlert('Import Failed', 'Unable to import selected media file.');
+    } finally {
+      resumeAutoLock();
     }
   };
 
   const handleShare = async (file: VaultFile) => {
     try {
+      pauseAutoLock();
       const available = await Sharing.isAvailableAsync();
       if (!available) {
         showAlert('Sharing Unavailable', 'Sharing is not supported on this device.');
@@ -291,6 +295,8 @@ export const MediaVault: React.FC = () => {
       });
     } catch (err) {
       console.error('Error sharing media file:', err);
+    } finally {
+      resumeAutoLock();
     }
   };
 

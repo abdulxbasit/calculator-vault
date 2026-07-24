@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useVault } from '../../context/vault-context';
 import { useAlert } from '../../context/alert-context';
+import { BackupModal } from './backup-modal';
 
 export const VaultSettings: React.FC = () => {
   const { showAlert } = useAlert();
@@ -24,6 +25,7 @@ export const VaultSettings: React.FC = () => {
   const [newPin, setNewPin] = useState('');
   const [question, setQuestion] = useState(securityQuestion || 'What is your pet name?');
   const [answer, setAnswer] = useState('');
+  const [showBackupModal, setShowBackupModal] = useState(false);
 
   const photosCount = files.filter((f) => f.type === 'image').length;
   const videosCount = files.filter((f) => f.type === 'video').length;
@@ -141,6 +143,32 @@ export const VaultSettings: React.FC = () => {
       <View style={styles.divider} />
 
       <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Backup & Data Protection</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.backupSub}>
+          Export or import your entire vault (photos, videos, documents, secret notes, and passwords) protected with an AES-256 password.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.backupActionBtn}
+          onPress={() => setShowBackupModal(true)}
+        >
+          <View style={styles.backupActionIcon}>
+            <Ionicons name="shield-half-outline" size={22} color="#38bdf8" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.backupActionTitle}>Password-Protected Backup</Text>
+            <Text style={styles.backupActionSub}>Export or import encrypted (.vault) bundle</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#a1a1aa" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Stealth & Auto-Lock Features</Text>
       </View>
 
@@ -161,6 +189,11 @@ export const VaultSettings: React.FC = () => {
           </Text>
         </View>
       </View>
+
+      <BackupModal
+        visible={showBackupModal}
+        onClose={() => setShowBackupModal(false)}
+      />
     </ScrollView>
   );
 };
@@ -290,5 +323,39 @@ const styles = StyleSheet.create({
     color: '#A1A1AA',
     fontSize: 13,
     lineHeight: 18,
+  },
+  backupSub: {
+    fontSize: 12,
+    color: '#a1a1aa',
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  backupActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#181818',
+    borderRadius: 10,
+    padding: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#383838',
+  },
+  backupActionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#0c4a6e33',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backupActionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  backupActionSub: {
+    fontSize: 11,
+    color: '#a1a1aa',
+    marginTop: 2,
   },
 });

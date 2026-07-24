@@ -62,6 +62,11 @@ interface VaultContextType {
   addPassword: (item: Omit<PasswordRecord, 'id' | 'createdAt' | 'updatedAt'>) => Promise<PasswordRecord>;
   updatePassword: (id: string, item: Omit<PasswordRecord, 'id' | 'createdAt' | 'updatedAt'>) => Promise<boolean>;
   deletePassword: (id: string) => Promise<boolean>;
+
+  // Refresh & Lock Control
+  reloadVaultData: () => Promise<void>;
+  pauseAutoLock: () => void;
+  resumeAutoLock: () => void;
 }
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -76,23 +81,29 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [passwords, setPasswords] = useState<PasswordRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  const reloadVaultData = async () => {
+    try {
+      const pinHash = await getSavedPinHash();
+      setHasPin(!!pinHash);
+
+      const secQ = await getSecurityQuestion();
+      setSecurityQuestion(secQ);
+
+      const meta = await loadVaultMetadata();
+      setFolders(meta.folders || []);
+      setFiles(meta.files || []);
+      setNotes(meta.notes || []);
+      setPasswords(meta.passwords || []);
+    } catch (err) {
+      console.error('Error reloading vault data:', err);
+    }
+  };
+
   // Initialize and check if PIN exists
   useEffect(() => {
     async function init() {
       try {
-        const pinHash = await getSavedPinHash();
-        setHasPin(!!pinHash);
-
-        const secQ = await getSecurityQuestion();
-        setSecurityQuestion(secQ);
-
-        const meta = await loadVaultMetadata();
-        setFolders(meta.folders || []);
-        setFiles(meta.files || []);
-        setNotes(meta.notes || []);
-        setPasswords(meta.passwords || []);
-      } catch (err) {
-        console.error('Error loading vault init state:', err);
+        await reloadVaultData();
       } finally {
         setIsLoading(false);
       }
@@ -100,10 +111,33 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     init();
   }, []);
 
+  const autoLockPausedRef = React.useRef(false);
+  const resumeTimeoutRef = React.useRef<any>(null);
+
+  const pauseAutoLock = () => {
+    if (resumeTimeoutRef.current) {
+      clearTimeout(resumeTimeoutRef.current);
+      resumeTimeoutRef.current = null;
+    }
+    autoLockPausedRef.current = true;
+  };
+
+  const resumeAutoLock = () => {
+    if (resumeTimeoutRef.current) {
+      clearTimeout(resumeTimeoutRef.current);
+    }
+    resumeTimeoutRef.current = setTimeout(() => {
+      autoLockPausedRef.current = false;
+    }, 1500);
+  };
+
   // Listen to AppState to auto-lock vault when app goes to background
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
+        if (autoLockPausedRef.current) {
+          return;
+        }
         setIsUnlocked(false);
       }
     };
@@ -388,6 +422,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     category: 'media' | 'docs',
     customFolderName?: string
   ): Promise<boolean> => {
+    pauseAutoLock();
     try {
       // Helper: create a folder object WITHOUT triggering a separate persistState
       const makeFolderObject = (name: string): VaultFolder => ({
@@ -521,6 +556,8 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       console.error('Error importing folder from file manager:', err);
       Alert.alert('Import Failed', 'Could not import folder from file manager.');
       return false;
+    } finally {
+      resumeAutoLock();
     }
   };
 
@@ -528,6 +565,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     folderId: string,
     deleteFromVaultAfterExport = false
   ): Promise<boolean> => {
+    pauseAutoLock();
     try {
       const folderFiles = files.filter(
         (f) =>
@@ -612,10 +650,13 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } catch (err) {
       console.error('Error exporting folder:', err);
       return false;
+    } finally {
+      resumeAutoLock();
     }
   };
 
   const exportFilesBatchToFileManager = async (fileIds: string[]): Promise<boolean> => {
+    pauseAutoLock();
     try {
       const selectedFiles = files.filter((f) => fileIds.includes(f.id));
       if (selectedFiles.length === 0) return false;
@@ -664,6 +705,8 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } catch (err) {
       console.error('Error exporting batch files:', err);
       return false;
+    } finally {
+      resumeAutoLock();
     }
   };
 
@@ -701,6 +744,9 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         importFolderFromFileManager,
         exportFolderToFileManager,
         exportFilesBatchToFileManager,
+        reloadVaultData,
+        pauseAutoLock,
+        resumeAutoLock,
       }}
     >
       {children}
