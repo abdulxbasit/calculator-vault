@@ -107,6 +107,8 @@ export const MediaVault: React.FC = () => {
   const isSelectionMode = selectedFileIds.length > 0;
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [isControlsHidden, setIsControlsHidden] = useState<boolean>(false);
   const flatListRef = useRef<FlatList>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [fileToMove, setFileToMove] = useState<VaultFile | null>(null);
@@ -214,9 +216,6 @@ export const MediaVault: React.FC = () => {
     await importFolderFromFileManager('media');
   };
 
-  // Picture Zoom Level State
-  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
-
   const mediaFolders = folders.filter((f) => f.category === 'media');
   const allMediaFiles = files.filter((f) => f.type === 'image' || f.type === 'video');
 
@@ -231,6 +230,7 @@ export const MediaVault: React.FC = () => {
 
   const handleOpenPreview = (index: number) => {
     setZoomLevel(1.0);
+    setIsControlsHidden(false);
     setSelectedIndex(index);
   };
 
@@ -601,21 +601,23 @@ export const MediaVault: React.FC = () => {
         >
           <GestureHandlerRootView style={{ flex: 1 }}>
             <View style={styles.modalOverlay}>
-              {/* Glassy Header */}
-              <BlurView intensity={75} tint="dark" style={[styles.previewHeader, { paddingTop: insets.top + 12 }]}>
-                <TouchableOpacity onPress={() => setSelectedIndex(null)} style={styles.headerBackBtn}>
-                  <Ionicons name="arrow-back" size={24} color="#ffffff" />
-                </TouchableOpacity>
+              {/* Glassy Header (Hides on pinch zoom or single tap) */}
+              {zoomLevel <= 1.05 && !isControlsHidden && (
+                <BlurView intensity={75} tint="dark" style={[styles.previewHeader, { paddingTop: insets.top + 12 }]}>
+                  <TouchableOpacity onPress={() => setSelectedIndex(null)} style={styles.headerBackBtn}>
+                    <Ionicons name="arrow-back" size={24} color="#ffffff" />
+                  </TouchableOpacity>
 
-                <View style={styles.previewTitleContainer}>
-                  <Text style={styles.previewTitle} numberOfLines={1}>
-                    {selectedFile.name}
-                  </Text>
-                  <Text style={styles.previewCounter}>
-                    {selectedIndex + 1} of {filteredMediaFiles.length}
-                  </Text>
-                </View>
-              </BlurView>
+                  <View style={styles.previewTitleContainer}>
+                    <Text style={styles.previewTitle} numberOfLines={1}>
+                      {selectedFile.name}
+                    </Text>
+                    <Text style={styles.previewCounter}>
+                      {selectedIndex + 1} of {filteredMediaFiles.length}
+                    </Text>
+                  </View>
+                </BlurView>
+              )}
 
               {/* Horizontal Swipeable Content View */}
               <View style={styles.previewContent}>
@@ -640,6 +642,7 @@ export const MediaVault: React.FC = () => {
                     if (newIdx >= 0 && newIdx < filteredMediaFiles.length && newIdx !== selectedIndex) {
                       setSelectedIndex(newIdx);
                       setZoomLevel(1.0);
+                      setIsControlsHidden(false);
                     }
                   }}
                   renderItem={({ item }) => (
@@ -649,6 +652,8 @@ export const MediaVault: React.FC = () => {
                           uri={item.uri}
                           zoomLevel={zoomLevel}
                           onZoomChange={setZoomLevel}
+                          onSingleTap={() => setIsControlsHidden((prev) => !prev)}
+                          onPinchStart={() => setIsControlsHidden(true)}
                         />
                       ) : (
                         <VaultVideoPlayer uri={item.uri} />
@@ -658,32 +663,34 @@ export const MediaVault: React.FC = () => {
                 />
               </View>
 
-              {/* Glassy Footer Toolbar */}
-              <BlurView intensity={75} tint="dark" style={[styles.previewFooter, { paddingBottom: Math.max(insets.bottom + 8, Platform.OS === 'ios' ? 28 : 18) }]}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(selectedFile)}>
-                  <Ionicons name="share-outline" size={20} color="#38bdf8" />
-                  <Text style={styles.actionText}>Export</Text>
-                </TouchableOpacity>
+              {/* Glassy Footer Toolbar (Hides on pinch zoom or single tap) */}
+              {zoomLevel <= 1.05 && !isControlsHidden && (
+                <BlurView intensity={75} tint="dark" style={[styles.previewFooter, { paddingBottom: Math.max(insets.bottom + 8, Platform.OS === 'ios' ? 28 : 18) }]}>
+                  <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(selectedFile)}>
+                    <Ionicons name="share-outline" size={20} color="#38bdf8" />
+                    <Text style={styles.actionText}>Export</Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => {
-                    setFileToMove(selectedFile);
-                    setSelectedIndex(null);
-                  }}
-                >
-                  <Ionicons name="folder-open-outline" size={20} color="#facc15" />
-                  <Text style={[styles.actionText, { color: '#facc15' }]}>Move</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => {
+                      setFileToMove(selectedFile);
+                      setSelectedIndex(null);
+                    }}
+                  >
+                    <Ionicons name="folder-open-outline" size={20} color="#facc15" />
+                    <Text style={[styles.actionText, { color: '#facc15' }]}>Move</Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleDelete(selectedFile)}
-                >
-                  <Ionicons name="trash-outline" size={20} color="#f87171" />
-                  <Text style={[styles.actionText, { color: '#f87171' }]}>Delete</Text>
-                </TouchableOpacity>
-              </BlurView>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => handleDelete(selectedFile)}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#f87171" />
+                    <Text style={[styles.actionText, { color: '#f87171' }]}>Delete</Text>
+                  </TouchableOpacity>
+                </BlurView>
+              )}
             </View>
           </GestureHandlerRootView>
         </Modal>
@@ -1012,6 +1019,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
   },
   previewHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -1065,10 +1077,15 @@ const styles = StyleSheet.create({
     height: height * 0.7,
   },
   previewFooter: {
-    zIndex: 30,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingTop: 14,
+    alignItems: 'center',
+    paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 28 : 18,
     backgroundColor: 'rgba(18, 18, 18, 0.75)',
     borderTopWidth: 1,

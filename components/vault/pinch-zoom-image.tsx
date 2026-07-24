@@ -15,12 +15,16 @@ interface PinchZoomImageProps {
   uri: string;
   zoomLevel: number;
   onZoomChange?: (newZoom: number) => void;
+  onSingleTap?: () => void;
+  onPinchStart?: () => void;
 }
 
 export const PinchZoomImage: React.FC<PinchZoomImageProps> = ({
   uri,
   zoomLevel,
   onZoomChange,
+  onSingleTap,
+  onPinchStart,
 }) => {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -36,6 +40,18 @@ export const PinchZoomImage: React.FC<PinchZoomImageProps> = ({
     }
   };
 
+  const handleSingleTap = () => {
+    if (onSingleTap) {
+      onSingleTap();
+    }
+  };
+
+  const handlePinchStart = () => {
+    if (onPinchStart) {
+      onPinchStart();
+    }
+  };
+
   // Sync with header control buttons (+ / - / Reset)
   useEffect(() => {
     scale.value = withTiming(zoomLevel, { duration: 200 });
@@ -48,36 +64,50 @@ export const PinchZoomImage: React.FC<PinchZoomImageProps> = ({
     }
   }, [zoomLevel, scale, savedScale, translateX, translateY, savedTranslateX, savedTranslateY]);
 
-  // Pinch gesture handler
+  // Ultra-Smooth 60FPS Native Pinch Gesture
   const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      'worklet';
+      if (onPinchStart) {
+        runOnJS(handlePinchStart)();
+      }
+    })
     .onUpdate((event) => {
       'worklet';
       scale.value = clamp(savedScale.value * event.scale, 1.0, 5.0);
     })
     .onEnd(() => {
       'worklet';
-      savedScale.value = scale.value;
       if (scale.value <= 1.05) {
-        scale.value = withTiming(1.0);
+        scale.value = withTiming(1.0, { duration: 200 });
         savedScale.value = 1.0;
-        translateX.value = withTiming(0);
-        translateY.value = withTiming(0);
+        translateX.value = withTiming(0, { duration: 200 });
+        translateY.value = withTiming(0, { duration: 200 });
         savedTranslateX.value = 0;
         savedTranslateY.value = 0;
         runOnJS(notifyZoomChange)(1.0);
       } else {
+        savedScale.value = scale.value;
         runOnJS(notifyZoomChange)(scale.value);
       }
     });
 
-  // Pan gesture for moving picture around when zoomed in
+  // Pan gesture for dragging picture around when zoomed in
   const panGesture = Gesture.Pan()
-    .enabled(zoomLevel > 1.05)
+    .manualActivation(true)
+    .onTouchesMove((_, state) => {
+      'worklet';
+      if (scale.value > 1.05) {
+        state.activate();
+      } else {
+        state.fail();
+      }
+    })
     .onUpdate((event) => {
       'worklet';
-      if (scale.value > 1) {
+      if (scale.value > 1.05) {
         const maxTx = (SCREEN_WIDTH * (scale.value - 1)) / 2;
-        const maxTy = (SCREEN_HEIGHT * 0.85 * (scale.value - 1)) / 2;
+        const maxTy = (SCREEN_HEIGHT * (scale.value - 1)) / 2;
 
         translateX.value = clamp(savedTranslateX.value + event.translationX, -maxTx, maxTx);
         translateY.value = clamp(savedTranslateY.value + event.translationY, -maxTy, maxTy);
@@ -95,24 +125,31 @@ export const PinchZoomImage: React.FC<PinchZoomImageProps> = ({
     .onEnd(() => {
       'worklet';
       if (scale.value > 1.2) {
-        scale.value = withTiming(1.0);
+        scale.value = withTiming(1.0, { duration: 200 });
         savedScale.value = 1.0;
-        translateX.value = withTiming(0);
-        translateY.value = withTiming(0);
+        translateX.value = withTiming(0, { duration: 200 });
+        translateY.value = withTiming(0, { duration: 200 });
         savedTranslateX.value = 0;
         savedTranslateY.value = 0;
         runOnJS(notifyZoomChange)(1.0);
       } else {
-        scale.value = withTiming(2.5);
+        scale.value = withTiming(2.5, { duration: 200 });
         savedScale.value = 2.5;
         runOnJS(notifyZoomChange)(2.5);
       }
     });
 
-  const composedGesture = Gesture.Race(
-    doubleTapGesture,
-    Gesture.Simultaneous(pinchGesture, panGesture)
-  );
+  // Single-tap gesture (toggle full-screen controls)
+  const singleTapGesture = Gesture.Tap()
+    .numberOfTaps(1)
+    .onEnd(() => {
+      'worklet';
+      runOnJS(handleSingleTap)();
+    });
+
+  const tapGestures = Gesture.Exclusive(doubleTapGesture, singleTapGesture);
+  const pinchPanGestures = Gesture.Simultaneous(pinchGesture, panGesture);
+  const composedGesture = Gesture.Race(tapGestures, pinchPanGestures);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
