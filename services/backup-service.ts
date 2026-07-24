@@ -3,7 +3,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import JSZip from 'jszip';
 import CryptoJS from 'crypto-js';
-import * as Crypto from 'expo-crypto';
 
 import {
   VaultMetadata,
@@ -46,54 +45,38 @@ export async function exportEncryptedVault(
   // 1. Add metadata JSON
   zip.file('metadata.json', JSON.stringify(metadata, null, 2));
 
-  // 2. Add media & doc files to zip using parallel batching
+  // 2. Add media & doc files to zip
   const totalFiles = metadata.files.length;
   let processed = 0;
-  const BATCH_SIZE = 6;
 
-  for (let i = 0; i < metadata.files.length; i += BATCH_SIZE) {
-    const chunk = metadata.files.slice(i, i + BATCH_SIZE);
-    await Promise.all(
-      chunk.map(async (file) => {
-        try {
-          const fileInfo = await FileSystem.getInfoAsync(file.uri);
-          if (fileInfo.exists) {
-            const fileBase64 = await FileSystem.readAsStringAsync(file.uri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-            zip.file(`data/${file.id}`, fileBase64, { base64: true });
-          }
-        } catch (err) {
-          console.warn(`Failed to read file ${file.name} for backup:`, err);
-        }
-      })
-    );
-    processed += chunk.length;
-    const filePercent = Math.round(5 + (Math.min(processed, totalFiles) / Math.max(1, totalFiles)) * 55);
-    onProgress?.(`Packing files ${Math.min(processed, totalFiles)}/${totalFiles}...`, filePercent);
+  for (const file of metadata.files) {
+    processed++;
+    const filePercent = Math.round(5 + (processed / Math.max(1, totalFiles)) * 55);
+    onProgress?.(`Packing file ${processed}/${totalFiles}: ${file.name}`, filePercent);
+
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(file.uri);
+      if (fileInfo.exists) {
+        const fileBase64 = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        zip.file(`data/${file.id}`, fileBase64, { base64: true });
+      }
+    } catch (err) {
+      console.warn(`Failed to read file ${file.name} for backup:`, err);
+    }
   }
 
-  // 3. Generate raw zip base64 with fast compression
+  // 3. Generate raw zip base64 with progress reporting
   onProgress?.('Creating zip archive...', 62);
-  const zipBase64 = await zip.generateAsync(
-    {
-      type: 'base64',
-      compression: 'DEFLATE',
-      compressionOptions: { level: 1 },
-    },
-    (zipMeta) => {
-      const zipPercent = Math.round(62 + zipMeta.percent * 0.2);
-      onProgress?.(`Creating zip archive (${Math.round(zipMeta.percent)}%)...`, zipPercent);
-    }
-  );
+  const zipBase64 = await zip.generateAsync({ type: 'base64' }, (zipMeta) => {
+    const zipPercent = Math.round(62 + (zipMeta.percent * 0.20));
+    onProgress?.(`Creating zip archive (${Math.round(zipMeta.percent)}%)...`, zipPercent);
+  });
 
-  // 4. Encrypt zip string using fast native key derivation (expo-crypto) + AES-256
+  // 4. Encrypt zip string using AES-256 with password
   onProgress?.('Encrypting archive with AES-256...', 85);
-  const derivedKeyHex = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    password.trim()
-  );
-  const encryptedPayload = CryptoJS.AES.encrypt(zipBase64, derivedKeyHex).toString();
+  const encryptedPayload = CryptoJS.AES.encrypt(zipBase64, password.trim()).toString();
 
   const timeStamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const backupFileName = `Vault_Backup_${timeStamp}.vault`;
@@ -183,28 +166,14 @@ export async function importEncryptedVault(
     }
   }
 
-  // 2. Decrypt with AES-256 using fast native key derivation with fallback for legacy backups
+  // 2. Decrypt with AES-256
   onProgress?.('Decrypting backup with password...', 25);
   let decryptedZipBase64 = '';
   try {
-    const derivedKeyHex = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      password.trim()
-    );
-    const bytes = CryptoJS.AES.decrypt(encryptedContent.trim(), derivedKeyHex);
+    const bytes = CryptoJS.AES.decrypt(encryptedContent.trim(), password.trim());
     decryptedZipBase64 = bytes.toString(CryptoJS.enc.Utf8);
   } catch {
-    decryptedZipBase64 = '';
-  }
-
-  // Fallback to raw password decryption if legacy backup file
-  if (!decryptedZipBase64) {
-    try {
-      const bytes = CryptoJS.AES.decrypt(encryptedContent.trim(), password.trim());
-      decryptedZipBase64 = bytes.toString(CryptoJS.enc.Utf8);
-    } catch {
-      throw new Error('Incorrect password or invalid backup file');
-    }
+    throw new Error('Incorrect password or invalid backup file');
   }
 
   if (!decryptedZipBase64 || decryptedZipBase64.length === 0) {
@@ -238,42 +207,34 @@ export async function importEncryptedVault(
     }
   }
 
-  // 5. Restore files to disk using parallel batching
+  // 5. Restore files to disk
   const restoredFiles: VaultFile[] = [];
   const backupFiles = backupMeta.files || [];
-  const RESTORE_BATCH_SIZE = 6;
 
-  for (let i = 0; i < backupFiles.length; i += RESTORE_BATCH_SIZE) {
-    const chunk = backupFiles.slice(i, i + RESTORE_BATCH_SIZE);
-    const results = await Promise.all(
-      chunk.map(async (fileItem) => {
-        const zipEntry = zip.file(`data/${fileItem.id}`);
-        if (!zipEntry) return null;
+  let fileIndex = 0;
+  for (const fileItem of backupFiles) {
+    fileIndex++;
+    const restorePercent = Math.round(50 + (fileIndex / Math.max(1, backupFiles.length)) * 40);
+    onProgress?.(`Restoring file ${fileIndex}/${backupFiles.length}: ${fileItem.name}`, restorePercent);
 
-        const fileBase64 = await zipEntry.async('base64');
-        const isDoc = fileItem.type === 'document';
-        const targetDir = isDoc ? DOCS_DIR : MEDIA_DIR;
-        const sanitizedName = fileItem.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-        const targetPath = `${targetDir}${fileItem.id}_${sanitizedName}`;
+    const zipEntry = zip.file(`data/${fileItem.id}`);
+    if (zipEntry) {
+      const fileBase64 = await zipEntry.async('base64');
 
-        await FileSystem.writeAsStringAsync(targetPath, fileBase64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+      const isDoc = fileItem.type === 'document';
+      const targetDir = isDoc ? DOCS_DIR : MEDIA_DIR;
+      const sanitizedName = fileItem.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const targetPath = `${targetDir}${fileItem.id}_${sanitizedName}`;
 
-        return {
-          ...fileItem,
-          uri: targetPath,
-        };
-      })
-    );
+      await FileSystem.writeAsStringAsync(targetPath, fileBase64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-    for (const res of results) {
-      if (res) restoredFiles.push(res);
+      restoredFiles.push({
+        ...fileItem,
+        uri: targetPath,
+      });
     }
-
-    const currentCount = Math.min(i + chunk.length, backupFiles.length);
-    const restorePercent = Math.round(50 + (currentCount / Math.max(1, backupFiles.length)) * 40);
-    onProgress?.(`Restoring files ${currentCount}/${backupFiles.length}...`, restorePercent);
   }
 
   // 6. Merge or Overwrite Metadata
