@@ -55,8 +55,9 @@ interface VaultContextType {
   deleteFilesBatch: (ids: string[]) => Promise<boolean>;
 
   // Notes
-  addNote: (title: string, content: string) => Promise<SecretNote>;
-  updateNote: (id: string, title: string, content: string) => Promise<boolean>;
+  addNote: (title: string, content: string, color?: string, isPinned?: boolean) => Promise<SecretNote>;
+  updateNote: (id: string, title: string, content: string, color?: string, isPinned?: boolean) => Promise<boolean>;
+  togglePinNote: (id: string) => Promise<boolean>;
   deleteNote: (id: string) => Promise<boolean>;
 
   // Passwords
@@ -370,11 +371,18 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   // Notes
-  const addNote = async (title: string, content: string): Promise<SecretNote> => {
+  const addNote = async (
+    title: string,
+    content: string,
+    color?: string,
+    isPinned?: boolean
+  ): Promise<SecretNote> => {
     const newNote: SecretNote = {
       id: Date.now().toString(),
       title,
       content,
+      color,
+      isPinned,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -384,9 +392,24 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return newNote;
   };
 
-  const updateNote = async (id: string, title: string, content: string): Promise<boolean> => {
+  const updateNote = async (
+    id: string,
+    title: string,
+    content: string,
+    color?: string,
+    isPinned?: boolean
+  ): Promise<boolean> => {
     const updated = notes.map((n) =>
-      n.id === id ? { ...n, title, content, updatedAt: Date.now() } : n
+      n.id === id ? { ...n, title, content, color, isPinned, updatedAt: Date.now() } : n
+    );
+    setNotes(updated);
+    await persistState(folders, files, updated, passwords);
+    return true;
+  };
+
+  const togglePinNote = async (id: string): Promise<boolean> => {
+    const updated = notes.map((n) =>
+      n.id === id ? { ...n, isPinned: !n.isPinned, updatedAt: Date.now() } : n
     );
     setNotes(updated);
     await persistState(folders, files, updated, passwords);
@@ -754,6 +777,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         deleteFilesBatch,
         addNote,
         updateNote,
+        togglePinNote,
         deleteNote,
         addPassword,
         updatePassword,
