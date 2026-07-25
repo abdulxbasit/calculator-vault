@@ -71,6 +71,10 @@ interface VaultContextType {
   reloadVaultData: () => Promise<void>;
   pauseAutoLock: () => void;
   resumeAutoLock: () => void;
+
+  // Screen Capture & Screenshot Control
+  isScreenCaptureAllowed: boolean;
+  setScreenCaptureAllowed: (allowed: boolean) => Promise<void>;
 }
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -85,6 +89,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [passwords, setPasswords] = useState<PasswordRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'media' | 'docs' | 'notes' | 'passwords' | 'settings'>('media');
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isScreenCaptureAllowed, setIsScreenCaptureAllowed] = useState<boolean>(true);
 
   const reloadVaultData = async () => {
     try {
@@ -99,6 +104,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setFiles(meta.files || []);
       setNotes(meta.notes || []);
       setPasswords(meta.passwords || []);
+      setIsScreenCaptureAllowed(meta.allowScreenCapture ?? true);
     } catch (err) {
       console.error('Error reloading vault data:', err);
     }
@@ -150,11 +156,11 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return () => subscription.remove();
   }, []);
 
-  // Prevent recent apps / task switcher screenshot of unlocked vault
+  // Handle screen capture and screenshot behavior
   useEffect(() => {
     async function updateScreenCapture() {
       try {
-        if (isUnlocked) {
+        if (isUnlocked && !isScreenCaptureAllowed) {
           await ScreenCapture.preventScreenCaptureAsync();
         } else {
           await ScreenCapture.allowScreenCaptureAsync();
@@ -164,14 +170,15 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     }
     updateScreenCapture();
-  }, [isUnlocked]);
+  }, [isUnlocked, isScreenCaptureAllowed]);
 
   // Save metadata updates
   const persistState = async (
     newFolders = folders,
     newFiles = files,
     newNotes = notes,
-    newPasswords = passwords
+    newPasswords = passwords,
+    newScreenCaptureAllowed = isScreenCaptureAllowed
   ) => {
     const meta: VaultMetadata = {
       folders: newFolders,
@@ -179,8 +186,14 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       notes: newNotes,
       passwords: newPasswords,
       securityQuestion: securityQuestion || undefined,
+      allowScreenCapture: newScreenCaptureAllowed,
     };
     await saveVaultMetadata(meta);
+  };
+
+  const setScreenCaptureAllowed = async (allowed: boolean) => {
+    setIsScreenCaptureAllowed(allowed);
+    await persistState(folders, files, notes, passwords, allowed);
   };
 
   const unlockVault = async (pin: string): Promise<boolean> => {
@@ -793,6 +806,8 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         reloadVaultData,
         pauseAutoLock,
         resumeAutoLock,
+        isScreenCaptureAllowed,
+        setScreenCaptureAllowed,
       }}
     >
       {children}

@@ -48,6 +48,7 @@ export interface VaultMetadata {
   notes: SecretNote[];
   passwords: PasswordRecord[];
   securityQuestion?: string;
+  allowScreenCapture?: boolean;
 }
 
 export const VAULT_DIR = (FileSystem.documentDirectory || '') + 'vault/';

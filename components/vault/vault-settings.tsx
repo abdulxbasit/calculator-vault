@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import React, { useState } from 'react';
 import {
   Image,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -20,6 +22,8 @@ export const VaultSettings: React.FC = () => {
     setupPin,
     files,
     notes,
+    isScreenCaptureAllowed,
+    setScreenCaptureAllowed,
   } = useVault();
 
   const [newPin, setNewPin] = useState('');
@@ -62,7 +66,9 @@ export const VaultSettings: React.FC = () => {
         />
         <View style={{ flex: 1 }}>
           <Text style={styles.appName}>Vault Calculator</Text>
-          <Text style={styles.appVersion}>Encrypted & Sandboxed Storage v1.0</Text>
+          <Text style={styles.appVersion}>
+            Encrypted & Sandboxed Storage v{Constants.expoConfig?.version || '1.5.0'}
+          </Text>
         </View>
       </View>
 
@@ -164,6 +170,31 @@ export const VaultSettings: React.FC = () => {
           <Text style={styles.saveBtnText}>Update PIN & Security</Text>
         </TouchableOpacity>
       </View>
+      <View style={styles.divider} />
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Privacy & Screen Capture</Text>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.settingTitle}>Allow Screen Capture & Screenshots</Text>
+            <Text style={styles.settingSub}>
+              {isScreenCaptureAllowed
+                ? 'Screen recording and taking screenshots are currently enabled.'
+                : 'Screen capture and screenshots are currently disabled for maximum privacy.'}
+            </Text>
+          </View>
+          <Switch
+            value={isScreenCaptureAllowed}
+            onValueChange={(val) => setScreenCaptureAllowed(val)}
+            trackColor={{ false: '#3f3f46', true: '#2563eb' }}
+            thumbColor={isScreenCaptureAllowed ? '#ffffff' : '#a1a1aa'}
+          />
+        </View>
+      </View>
+
       <View style={styles.divider} />
 
       <View style={styles.sectionHeader}>
@@ -355,5 +386,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#a1a1aa',
     marginTop: 2,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  settingTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  settingSub: {
+    fontSize: 12,
+    color: '#a1a1aa',
+    marginTop: 4,
+    lineHeight: 16,
   },
 });

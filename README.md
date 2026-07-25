@@ -4,9 +4,9 @@ A discrete, password-protected Vault disguised as a fully functional Calculator 
 
 ## 📱 Download Android APK
 
-[![Download Secret Vault Calculator APK](https://img.shields.io/badge/Download-SecretVaultCalculator.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/abdulxbasit/calculator-vault/releases/download/v1.0.0/SecretVaultCalculator.apk)
+[![Download Secret Vault Calculator APK](https://img.shields.io/badge/Download-SecretVaultCalculator.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/abdulxbasit/calculator-vault/releases/download/v1.5.0/SecretVaultCalculator.apk)
 
-Click the button above or download directly from the [GitHub Releases Page](https://github.com/abdulxbasit/calculator-vault/releases/tag/v1.0.0).
+Click the button above or download directly from the [GitHub Releases Page](https://github.com/abdulxbasit/calculator-vault/releases/tag/v1.5.0).
 
 ---
 
