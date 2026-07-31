@@ -36,7 +36,6 @@ export const VaultSettings: React.FC = () => {
 
   const photosCount = files.filter((f) => f.type === 'image').length;
   const videosCount = files.filter((f) => f.type === 'video').length;
-  const docsCount = files.filter((f) => f.type === 'document').length;
 
   const handleChangePin = async () => {
     if (newPin.length < 4 || newPin.length > 8) {
@@ -96,9 +95,9 @@ export const VaultSettings: React.FC = () => {
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="document-text" size={18} color="#facc15" />
-          <Text style={styles.statNumber}>{docsCount}</Text>
-          <Text style={styles.statLabel}>Docs</Text>
+          <Ionicons name="chatbubbles" size={18} color="#facc15" />
+          <Text style={styles.statNumber}>0</Text>
+          <Text style={styles.statLabel}>Chats</Text>
         </View>
 
         <View style={styles.statCard}>

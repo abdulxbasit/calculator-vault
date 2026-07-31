@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useVault } from '../../context/vault-context';
-import { DocumentsVault } from './documents-vault';
+import { ChatVault } from './chat-vault';
 import { MediaVault } from './media-vault';
 import { NotesVault } from './notes-vault';
 import { PasswordsVault } from './passwords-vault';
@@ -23,8 +23,8 @@ export const VaultScreen: React.FC = () => {
     switch (activeTab) {
       case 'media':
         return <MediaVault />;
-      case 'docs':
-        return <DocumentsVault />;
+      case 'chat':
+        return <ChatVault />;
       case 'notes':
         return <NotesVault />;
       case 'passwords':
@@ -68,16 +68,16 @@ export const VaultScreen: React.FC = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'docs' && styles.tabItemActive]}
-          onPress={() => setActiveTab('docs')}
+          style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
+          onPress={() => setActiveTab('chat')}
         >
           <Ionicons
-            name={activeTab === 'docs' ? 'folder-open' : 'folder-open-outline'}
+            name={activeTab === 'chat' ? 'chatbubbles' : 'chatbubbles-outline'}
             size={22}
-            color={activeTab === 'docs' ? '#FFFFFF' : '#71717A'}
+            color={activeTab === 'chat' ? '#FFFFFF' : '#71717A'}
           />
-          <Text style={[styles.tabLabel, activeTab === 'docs' && styles.tabLabelActive]}>
-            Docs
+          <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
+            Chats
           </Text>
         </TouchableOpacity>
 
