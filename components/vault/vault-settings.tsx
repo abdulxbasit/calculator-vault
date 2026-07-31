@@ -22,8 +22,11 @@ export const VaultSettings: React.FC = () => {
     setupPin,
     files,
     notes,
+    lockVault,
     isScreenCaptureAllowed,
     setScreenCaptureAllowed,
+    isFlipToLockAllowed,
+    setFlipToLockAllowed,
   } = useVault();
 
   const [newPin, setNewPin] = useState('');
@@ -202,6 +205,30 @@ export const VaultSettings: React.FC = () => {
       </View>
 
       <View style={styles.infoBox}>
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.settingTitle}>Flip Face-Down to Lock Vault</Text>
+            <Text style={styles.settingSub}>
+              {isFlipToLockAllowed
+                ? 'Turning phone screen face-down automatically locks vault & returns to calculator view.'
+                : 'Flip face-down gesture is currently disabled.'}
+            </Text>
+          </View>
+          <Switch
+            value={isFlipToLockAllowed}
+            onValueChange={(val) => setFlipToLockAllowed(val)}
+            trackColor={{ false: '#3f3f46', true: '#2563eb' }}
+            thumbColor={isFlipToLockAllowed ? '#ffffff' : '#a1a1aa'}
+          />
+        </View>
+
+        <TouchableOpacity style={styles.testFlipBtn} onPress={lockVault}>
+          <Ionicons name="phone-portrait-outline" size={18} color="#38bdf8" />
+          <Text style={styles.testFlipBtnText}>Lock Vault & Return to Calculator</Text>
+        </TouchableOpacity>
+
+        <View style={styles.divider} />
+
         <View style={styles.infoRow}>
           <Ionicons name="lock-closed" size={18} color="#4ade80" />
           <Text style={styles.infoText}>
@@ -402,5 +429,22 @@ const styles = StyleSheet.create({
     color: '#a1a1aa',
     marginTop: 4,
     lineHeight: 16,
+  },
+  testFlipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#181818',
+    borderRadius: 10,
+    paddingVertical: 11,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#383838',
+  },
+  testFlipBtnText: {
+    color: '#38bdf8',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
 });

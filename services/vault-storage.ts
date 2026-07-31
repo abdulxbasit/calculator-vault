@@ -49,6 +49,7 @@ export interface VaultMetadata {
   passwords: PasswordRecord[];
   securityQuestion?: string;
   allowScreenCapture?: boolean;
+  allowFlipToLock?: boolean;
 }
 
 export const VAULT_DIR = (FileSystem.documentDirectory || '') + 'vault/';
@@ -232,6 +233,8 @@ export async function loadVaultMetadata(): Promise<VaultMetadata> {
         notes: data.notes || [],
         passwords: data.passwords || [],
         securityQuestion: data.securityQuestion,
+        allowScreenCapture: data.allowScreenCapture,
+        allowFlipToLock: data.allowFlipToLock ?? data.allowShakeToLock,
       };
     }
   } catch (err) {

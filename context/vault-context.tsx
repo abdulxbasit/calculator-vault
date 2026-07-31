@@ -3,6 +3,8 @@ import { AppState, AppStateStatus, Platform, Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ScreenCapture from 'expo-screen-capture';
+import { Accelerometer } from 'expo-sensors';
+import * as Haptics from 'expo-haptics';
 import {
   VaultFolder,
   VaultFile,
@@ -78,6 +80,10 @@ interface VaultContextType {
   // Screen Capture & Screenshot Control
   isScreenCaptureAllowed: boolean;
   setScreenCaptureAllowed: (allowed: boolean) => Promise<void>;
+
+  // Flip Face-Down Gesture Control
+  isFlipToLockAllowed: boolean;
+  setFlipToLockAllowed: (allowed: boolean) => Promise<void>;
 }
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -93,6 +99,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [activeTab, setActiveTab] = useState<'media' | 'docs' | 'notes' | 'passwords' | 'settings'>('media');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isScreenCaptureAllowed, setIsScreenCaptureAllowed] = useState<boolean>(true);
+  const [isFlipToLockAllowed, setIsFlipToLockAllowed] = useState<boolean>(true);
 
   const reloadVaultData = async () => {
     try {
@@ -108,6 +115,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setNotes(meta.notes || []);
       setPasswords(meta.passwords || []);
       setIsScreenCaptureAllowed(meta.allowScreenCapture ?? true);
+      setIsFlipToLockAllowed(meta.allowFlipToLock ?? true);
     } catch (err) {
       console.error('Error reloading vault data:', err);
     }
@@ -175,13 +183,47 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     updateScreenCapture();
   }, [isUnlocked, isScreenCaptureAllowed]);
 
+  // Flip Face-Down Detection (Turning phone screen face-down instantly locks vault & returns to calculator view)
+  const isFlippedRef = React.useRef(false);
+
+  useEffect(() => {
+    if (!isUnlocked || !isFlipToLockAllowed) {
+      isFlippedRef.current = false;
+      return;
+    }
+
+    try {
+      Accelerometer.setUpdateInterval(150);
+    } catch {}
+
+    const subscription = Accelerometer.addListener(({ z }) => {
+      // z is vector perpendicular to phone screen (facing UP: z ≈ +1.0, facing DOWN: z <= -0.75)
+      const isFaceDown = z <= -0.75;
+
+      if (isFaceDown && !isFlippedRef.current) {
+        isFlippedRef.current = true;
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        } catch {}
+        setIsUnlocked(false);
+      } else if (!isFaceDown) {
+        isFlippedRef.current = false;
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isUnlocked, isFlipToLockAllowed]);
+
   // Save metadata updates
   const persistState = async (
     newFolders = folders,
     newFiles = files,
     newNotes = notes,
     newPasswords = passwords,
-    newScreenCaptureAllowed = isScreenCaptureAllowed
+    newScreenCaptureAllowed = isScreenCaptureAllowed,
+    newFlipToLockAllowed = isFlipToLockAllowed
   ) => {
     const meta: VaultMetadata = {
       folders: newFolders,
@@ -190,13 +232,19 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       passwords: newPasswords,
       securityQuestion: securityQuestion || undefined,
       allowScreenCapture: newScreenCaptureAllowed,
+      allowFlipToLock: newFlipToLockAllowed,
     };
     await saveVaultMetadata(meta);
   };
 
   const setScreenCaptureAllowed = async (allowed: boolean) => {
     setIsScreenCaptureAllowed(allowed);
-    await persistState(folders, files, notes, passwords, allowed);
+    await persistState(folders, files, notes, passwords, allowed, isFlipToLockAllowed);
+  };
+
+  const setFlipToLockAllowed = async (allowed: boolean) => {
+    setIsFlipToLockAllowed(allowed);
+    await persistState(folders, files, notes, passwords, isScreenCaptureAllowed, allowed);
   };
 
   const unlockVault = async (pin: string): Promise<boolean> => {
@@ -875,6 +923,8 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         resumeAutoLock,
         isScreenCaptureAllowed,
         setScreenCaptureAllowed,
+        isFlipToLockAllowed,
+        setFlipToLockAllowed,
       }}
     >
       {children}
