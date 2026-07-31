@@ -1,7 +1,7 @@
+import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
-import * as Crypto from 'expo-crypto';
-
+import { Platform } from 'react-native';
 export interface VaultFolder {
   id: string;
   name: string;
@@ -153,12 +153,13 @@ export async function copyFileToVault(
   category: 'media' | 'docs',
   originalName: string,
   fileType: 'image' | 'video' | 'document',
-  mimeType?: string
+  mimeType?: string,
+  deleteSource: boolean = true
 ): Promise<VaultFile | null> {
   await initVaultDirectories();
   const fileId = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 8);
   const targetDir = category === 'media' ? MEDIA_DIR : DOCS_DIR;
-  
+
   // Extract extension
   const extMatch = originalName.match(/\.[0-9a-z]+$/i);
   const ext = extMatch ? extMatch[0] : '';
@@ -173,6 +174,21 @@ export async function copyFileToVault(
 
     const fileInfo = await FileSystem.getInfoAsync(destinationPath);
     const size = fileInfo.exists && 'size' in fileInfo ? fileInfo.size : undefined;
+
+    // By default, delete file from source after moving it to vault
+    if (deleteSource && sourceUri) {
+      try {
+        if (Platform.OS === 'android' && sourceUri.startsWith('content://')) {
+          if (FileSystem.StorageAccessFramework) {
+            await FileSystem.StorageAccessFramework.deleteAsync(sourceUri).catch(() => { });
+          }
+        } else {
+          await FileSystem.deleteAsync(sourceUri, { idempotent: true }).catch(() => { });
+        }
+      } catch (delErr) {
+        console.warn('Could not delete source file after moving:', sourceUri, delErr);
+      }
+    }
 
     return {
       id: fileId,

@@ -40,10 +40,12 @@ interface VaultContextType {
   // Folders
   createFolder: (name: string, category: 'media' | 'docs', color?: string) => Promise<VaultFolder>;
   deleteFolder: (id: string, deleteContents?: boolean) => Promise<boolean>;
+  deleteFoldersBatch: (ids: string[], deleteContents?: boolean) => Promise<boolean>;
   renameFolder: (id: string, name: string) => Promise<boolean>;
   importFolderFromFileManager: (category: 'media' | 'docs', customFolderName?: string) => Promise<boolean>;
   exportFolderToFileManager: (folderId: string, deleteFromVaultAfterExport?: boolean) => Promise<boolean>;
-  exportFilesBatchToFileManager: (fileIds: string[]) => Promise<boolean>;
+  exportFoldersBatchToFileManager: (folderIds: string[], deleteFromVaultAfterExport?: boolean) => Promise<boolean>;
+  exportFilesBatchToFileManager: (fileIds: string[], deleteFromVaultAfterExport?: boolean) => Promise<boolean>;
 
   // Media & Files
   addMediaFile: (uri: string, originalName: string, type: 'image' | 'video', mimeType?: string, folderId?: string) => Promise<boolean>;
@@ -51,6 +53,7 @@ interface VaultContextType {
   addDocumentFile: (uri: string, originalName: string, mimeType?: string, folderId?: string) => Promise<boolean>;
   addDocumentFilesBatch: (items: { uri: string; originalName: string; mimeType?: string }[], folderId?: string) => Promise<boolean>;
   moveFileToFolder: (fileId: string, folderId?: string) => Promise<boolean>;
+  moveFilesBatchToFolder: (fileIds: string[], folderId?: string) => Promise<boolean>;
   deleteFile: (id: string) => Promise<boolean>;
   deleteFilesBatch: (ids: string[]) => Promise<boolean>;
 
@@ -271,6 +274,26 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return true;
   };
 
+  const deleteFoldersBatch = async (ids: string[], deleteContents = true): Promise<boolean> => {
+    if (!ids.length) return false;
+    let updatedFiles = files;
+    if (deleteContents) {
+      const filesToDelete = files.filter((f) => f.folderId && ids.includes(f.folderId));
+      for (const f of filesToDelete) {
+        await removeFileFromVault(f.uri);
+      }
+      updatedFiles = files.filter((f) => !f.folderId || !ids.includes(f.folderId));
+    } else {
+      updatedFiles = files.map((f) => (f.folderId && ids.includes(f.folderId) ? { ...f, folderId: undefined } : f));
+    }
+
+    const updatedFolders = folders.filter((dir) => !ids.includes(dir.id));
+    setFolders(updatedFolders);
+    setFiles(updatedFiles);
+    await persistState(updatedFolders, updatedFiles, notes, passwords);
+    return true;
+  };
+
   const renameFolder = async (id: string, name: string): Promise<boolean> => {
     const updatedFolders = folders.map((dir) =>
       dir.id === id ? { ...dir, name: name.trim() } : dir
@@ -356,11 +379,16 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return addDocumentFilesBatch([{ uri, originalName, mimeType }], folderId);
   };
 
-  const moveFileToFolder = async (fileId: string, folderId?: string): Promise<boolean> => {
-    const updatedFiles = files.map((f) => (f.id === fileId ? { ...f, folderId } : f));
+  const moveFilesBatchToFolder = async (fileIds: string[], folderId?: string): Promise<boolean> => {
+    if (!fileIds.length) return false;
+    const updatedFiles = files.map((f) => (fileIds.includes(f.id) ? { ...f, folderId } : f));
     setFiles(updatedFiles);
     await persistState(folders, updatedFiles, notes, passwords);
     return true;
+  };
+
+  const moveFileToFolder = async (fileId: string, folderId?: string): Promise<boolean> => {
+    return moveFilesBatchToFolder([fileId], folderId);
   };
 
   const deleteFile = async (id: string): Promise<boolean> => {
@@ -546,6 +574,17 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
             const copiedFiles = await copyItems(items, newFolder.id);
 
+            // Delete source folder after moving it to vault
+            try {
+              if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+                await FileSystem.StorageAccessFramework.deleteAsync(dirUri).catch(() => {});
+              } else {
+                await FileSystem.deleteAsync(dirUri, { idempotent: true }).catch(() => {});
+              }
+            } catch (dErr) {
+              console.warn('Could not delete source directory after move:', dirUri, dErr);
+            }
+
             // One atomic state + persist update with both new folder AND new files
             const updatedFolders = [newFolder, ...folders];
             const updatedFiles = [...copiedFiles, ...files];
@@ -619,7 +658,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const exportFolderToFileManager = async (
     folderId: string,
-    deleteFromVaultAfterExport = false
+    deleteFromVaultAfterExport = true
   ): Promise<boolean> => {
     pauseAutoLock();
     try {
@@ -711,17 +750,20 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  const exportFilesBatchToFileManager = async (fileIds: string[]): Promise<boolean> => {
+  const exportFilesBatchToFileManager = async (
+    fileIds: string[],
+    deleteFromVaultAfterExport = true
+  ): Promise<boolean> => {
     pauseAutoLock();
     try {
       const selectedFiles = files.filter((f) => fileIds.includes(f.id));
       if (selectedFiles.length === 0) return false;
 
+      let count = 0;
       if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (permissions.granted) {
           const targetDirUri = permissions.directoryUri;
-          let count = 0;
           for (const file of selectedFiles) {
             try {
               const mimeType =
@@ -748,22 +790,44 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               console.error('Error exporting batch file to SAF:', file.name, fileErr);
             }
           }
-          return count > 0;
         }
       } else {
         const Sharing = await import('expo-sharing');
         for (const file of selectedFiles) {
           await Sharing.shareAsync(file.uri);
+          count++;
         }
-        return true;
       }
-      return false;
+
+      if (count > 0 && deleteFromVaultAfterExport) {
+        for (const f of selectedFiles) {
+          await removeFileFromVault(f.uri);
+        }
+        const remainingFiles = files.filter((f) => !fileIds.includes(f.id));
+        setFiles(remainingFiles);
+        await persistState(folders, remainingFiles, notes, passwords);
+      }
+
+      return count > 0;
     } catch (err) {
       console.error('Error exporting batch files:', err);
       return false;
     } finally {
       resumeAutoLock();
     }
+  };
+
+  const exportFoldersBatchToFileManager = async (
+    folderIds: string[],
+    deleteFromVaultAfterExport = true
+  ): Promise<boolean> => {
+    if (!folderIds.length) return false;
+    let count = 0;
+    for (const id of folderIds) {
+      const res = await exportFolderToFileManager(id, deleteFromVaultAfterExport);
+      if (res) count++;
+    }
+    return count > 0;
   };
 
   return (
@@ -783,12 +847,14 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         resetPinWithSecurityAnswer,
         createFolder,
         deleteFolder,
+        deleteFoldersBatch,
         renameFolder,
         addMediaFile,
         addMediaFilesBatch,
         addDocumentFile,
         addDocumentFilesBatch,
         moveFileToFolder,
+        moveFilesBatchToFolder,
         deleteFile,
         deleteFilesBatch,
         addNote,
@@ -800,6 +866,7 @@ export const VaultProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         deletePassword,
         importFolderFromFileManager,
         exportFolderToFileManager,
+        exportFoldersBatchToFileManager,
         exportFilesBatchToFileManager,
         activeTab,
         setActiveTab,

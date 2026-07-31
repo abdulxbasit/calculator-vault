@@ -13,29 +13,38 @@ import { VaultFile, VaultFolder } from '../../services/vault-storage';
 
 interface MoveFileModalProps {
   visible: boolean;
-  file: VaultFile | null;
+  file?: VaultFile | null;
+  files?: VaultFile[];
   category: 'media' | 'docs';
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
 export const MoveFileModal: React.FC<MoveFileModalProps> = ({
   visible,
   file,
+  files,
   category,
   onClose,
+  onSuccess,
 }) => {
-  const { folders, moveFileToFolder } = useVault();
-  if (!file) return null;
+  const { folders, moveFilesBatchToFolder } = useVault();
+  const targetFiles = files && files.length > 0 ? files : file ? [file] : [];
+  if (targetFiles.length === 0) return null;
 
   const categoryFolders = folders.filter((f) => f.category === category);
 
   const handleSelectFolder = async (folderId?: string) => {
-    await moveFileToFolder(file.id, folderId);
+    const ids = targetFiles.map((f) => f.id);
+    await moveFilesBatchToFolder(ids, folderId);
+    if (onSuccess) onSuccess();
     onClose();
   };
 
+  const currentFolderId = targetFiles.length === 1 ? targetFiles[0].folderId : undefined;
+
   const renderFolderItem = ({ item }: { item: VaultFolder | { id: undefined; name: string } }) => {
-    const isSelected = file.folderId === item.id;
+    const isSelected = currentFolderId === item.id;
     const isRoot = item.id === undefined;
 
     return (
@@ -59,6 +68,11 @@ export const MoveFileModal: React.FC<MoveFileModalProps> = ({
     ...categoryFolders,
   ];
 
+  const headerLabel =
+    targetFiles.length === 1
+      ? `File: ${targetFiles[0].name}`
+      : `Moving ${targetFiles.length} item(s)`;
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -71,7 +85,7 @@ export const MoveFileModal: React.FC<MoveFileModalProps> = ({
           </View>
 
           <Text style={styles.fileName} numberOfLines={1}>
-            File: {file.name}
+            {headerLabel}
           </Text>
 
           <FlatList
